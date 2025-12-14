@@ -61,12 +61,18 @@ This directory contains automation scripts for managing the Talos Hybrid GitOps 
 
 **Generated Files:**
 - `clusters/omni/<site-code>/.site-metadata` (platform tracking - committed to repo)
-- `terraform/<platform>/terraform.tfvars.<site-code>` (platform-specific)
-- `terraform/jumphost/terraform.tfvars.<site-code>` (vSphere only)
+- `terraform/<platform>/terraform.tfvars.<site-code>` (infrastructure)
+- `terraform/jumphost-vsphere/terraform.tfvars.<site-code>` (vSphere jumphost)
+- `terraform/jumphost-proxmox/terraform.tfvars.<site-code>` (Proxmox jumphost)
 - `clusters/omni/<site-code>/README.md`
 
 **Platform Tracking:**
 The site's platform (vsphere/proxmox) is stored in `.site-metadata` and used by all scripts to automatically select the correct platform. This eliminates the need to specify platform in deployment commands.
+
+**Jumphost Platform Support:**
+- vSphere: Uses `terraform/jumphost-vsphere/` with vSphere provider
+- Proxmox: Uses `terraform/jumphost-proxmox/` with Proxmox provider
+- Both use identical cloud-init for tool installation
 
 ---
 
@@ -227,18 +233,21 @@ github-copilot-cli auth
 **Purpose:** Deploys site-specific Ubuntu management jumphost VMs with all tools pre-installed.
 
 **What it does:**
-1. Validates site code format (e.g., ny1d, sf2p)
-2. Validates prerequisites (Terraform)
-3. Checks for site-specific configuration
-4. Creates/uses Terraform workspace for site isolation
-5. Deploys Ubuntu VM to vSphere
-6. Cloud-init automatically installs:
+1. Loads site metadata to detect platform (vSphere or Proxmox)
+2. Validates site code format (e.g., ny1d, sf2p)
+3. Validates prerequisites (Terraform)
+4. Checks for site-specific configuration
+5. Creates/uses Terraform workspace for site isolation
+6. Deploys Ubuntu VM to vSphere or Proxmox
+7. Cloud-init automatically installs:
    - Talos Hybrid GitOps repository
    - All CLI tools (Terraform, kubectl, Flux, omnictl, talosctl)
    - Node.js, npm, and GitHub Copilot CLI
    - Essential development tools
 
 **Features:**
+- **Multi-platform support:** vSphere and Proxmox
+- Platform auto-detection from site metadata
 - Multi-site support with workspace isolation
 - Site code validation (2-letter city + zone + environment)
 - Automated VM provisioning with cloud-init
@@ -266,21 +275,25 @@ Components:
 **Usage:**
 
 ```bash
-# 1. Create site-specific configuration
-cd terraform/jumphost
+# 1. Create site-specific configuration (vSphere)
+cd terraform/jumphost-vsphere
 cp terraform.tfvars.example terraform.tfvars.ny1d
 # Edit with site-specific settings (hostname: jumphost-ny1d)
 
-# 2. Deploy jumphost for New York Zone 1 Dev
+# OR for Proxmox
+cd terraform/jumphost-proxmox
+cp terraform.tfvars.example terraform.tfvars.sf2p
+# Edit with site-specific settings (hostname: jumphost-sf2p)
+
+# 2. Deploy jumphost (platform auto-detected)
 cd ../..
 ./scripts/deploy-jumphost.sh ny1d
-
-# 3. Deploy jumphost for San Francisco Zone 2 Prod
 ./scripts/deploy-jumphost.sh sf2p
 ```
 
 **Configuration Files:**
-- Each site requires: `terraform/jumphost/terraform.tfvars.<site-code>`
+- vSphere sites: `terraform/jumphost-vsphere/terraform.tfvars.<site-code>`
+- Proxmox sites: `terraform/jumphost-proxmox/terraform.tfvars.<site-code>`
 - Example: `terraform.tfvars.ny1d`, `terraform.tfvars.sf2p`
 - Terraform workspaces provide state isolation per site
 
@@ -306,6 +319,22 @@ wget https://cloud-images.ubuntu.com/releases/22.04/release/ubuntu-22.04-server-
 - `jumphost_memory` - Memory in MB (default: 4096)
 - `jumphost_disk_size` - Disk size in GB (default: 50)
 - `jumphost_ssh_keys` - List of SSH public keys
+
+**Platform-Specific Setup:**
+
+vSphere:
+```bash
+# Download Ubuntu cloud image OVA
+wget https://cloud-images.ubuntu.com/releases/22.04/release/ubuntu-22.04-server-cloudimg-amd64.ova
+# Import to vSphere as template named "ubuntu-22.04-cloud"
+```
+
+Proxmox:
+```bash
+# Create Ubuntu cloud image template in Proxmox
+# See: https://pve.proxmox.com/wiki/Cloud-Init_Support
+# Default template ID: 9000
+```
 
 **Post-Deployment:**
 
@@ -523,4 +552,4 @@ source ~/.bashrc  # or source ~/.zshrc
 
 ---
 
-**Last Updated:** 2025-12-14T02:54:18.372Z
+**Last Updated:** 2025-12-14T03:14:20.173Z

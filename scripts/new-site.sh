@@ -73,7 +73,8 @@ ${GREEN}Examples:${NC}
 ${GREEN}What gets created:${NC}
   • clusters/omni/<site-code>/.site-metadata (platform tracking)
   • terraform/<platform>/terraform.tfvars.<site-code>
-  • terraform/jumphost/terraform.tfvars.<site-code> (vSphere only)
+  • terraform/jumphost-vsphere/terraform.tfvars.<site-code> (vSphere)
+  • terraform/jumphost-proxmox/terraform.tfvars.<site-code> (Proxmox)
   • clusters/omni/<site-code>/README.md
   • Site documentation and examples
 
@@ -219,8 +220,8 @@ EOF
     log "✓ Created: $tfvars_file"
 }
 
-# Create jumphost Terraform config
-create_jumphost_tfvars() {
+# Create jumphost Terraform config for vSphere
+create_jumphost_vsphere_tfvars() {
     local site_code=$1
     local location=$2
     local datacenter=$3
@@ -230,9 +231,9 @@ create_jumphost_tfvars() {
     local vcenter=$7
     local folder=$8
     
-    local tfvars_file="${PROJECT_ROOT}/terraform/jumphost/terraform.tfvars.${site_code}"
+    local tfvars_file="${PROJECT_ROOT}/terraform/jumphost-vsphere/terraform.tfvars.${site_code}"
     
-    log "Creating jumphost Terraform configuration..."
+    log "Creating vSphere jumphost Terraform configuration..."
     
     cat > "$tfvars_file" <<EOF
 # Jumphost for Site: ${site_code} - ${location}
@@ -254,6 +255,55 @@ vsphere_folder        = "${folder}"
 
 # Ubuntu Template
 ubuntu_template = "ubuntu-22.04-cloud"
+
+# Jumphost Configuration
+jumphost_hostname = "jumphost-${site_code}"
+jumphost_cpu      = 2
+jumphost_memory   = 4096
+jumphost_disk_size = 50
+
+# User Configuration
+jumphost_username = "ubuntu"
+jumphost_ssh_keys = [
+  # Add your SSH public keys here
+  # "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAB... user@host",
+]
+
+# Timezone
+jumphost_timezone = "UTC"
+EOF
+    
+    log "✓ Created: $tfvars_file"
+}
+
+# Create jumphost Terraform config for Proxmox
+create_jumphost_proxmox_tfvars() {
+    local site_code=$1
+    local location=$2
+    
+    local tfvars_file="${PROJECT_ROOT}/terraform/jumphost-proxmox/terraform.tfvars.${site_code}"
+    
+    log "Creating Proxmox jumphost Terraform configuration..."
+    
+    cat > "$tfvars_file" <<EOF
+# Jumphost for Site: ${site_code} - ${location}
+# Created: $(date)
+
+# Proxmox Connection
+proxmox_api_url      = "https://proxmox.example.com:8006/api2/json"
+proxmox_api_user     = "root@pam"
+proxmox_api_password = "CHANGEME"
+proxmox_tls_insecure = true
+
+# Proxmox Resources
+proxmox_node    = "pve"
+proxmox_storage = "local-lvm"
+proxmox_bridge  = "vmbr0"
+
+# Ubuntu Template
+# Create Ubuntu cloud image template in Proxmox first
+# See: https://pve.proxmox.com/wiki/Cloud-Init_Support
+ubuntu_template_id = 9000
 
 # Jumphost Configuration
 jumphost_hostname = "jumphost-${site_code}"
@@ -497,9 +547,10 @@ main() {
     # Create platform-specific Terraform configs
     if [[ "$platform" == "vsphere" ]]; then
         create_vsphere_tfvars "$site_code" "$location" "$datacenter" "$cluster" "$datastore" "$network" "$vcenter" "$folder"
-        create_jumphost_tfvars "$site_code" "$location" "$datacenter" "$cluster" "$datastore" "$network" "$vcenter" "$folder"
+        create_jumphost_vsphere_tfvars "$site_code" "$location" "$datacenter" "$cluster" "$datastore" "$network" "$vcenter" "$folder"
     else
         create_proxmox_tfvars "$site_code" "$location"
+        create_jumphost_proxmox_tfvars "$site_code" "$location"
     fi
     
     create_site_readme "$site_code" "$location" "$platform"
@@ -514,16 +565,21 @@ main() {
     log "Next steps:"
     echo ""
     log "  1. Review and edit Terraform configurations:"
-    log "     ${GREEN}vim terraform/vsphere/terraform.tfvars.${site_code}${NC}"
-    log "     ${GREEN}vim terraform/jumphost/terraform.tfvars.${site_code}${NC}"
+    if [[ "$platform" == "vsphere" ]]; then
+        log "     ${GREEN}vim terraform/vsphere/terraform.tfvars.${site_code}${NC}"
+        log "     ${GREEN}vim terraform/jumphost-vsphere/terraform.tfvars.${site_code}${NC}"
+    else
+        log "     ${GREEN}vim terraform/proxmox/terraform.tfvars.${site_code}${NC}"
+        log "     ${GREEN}vim terraform/jumphost-proxmox/terraform.tfvars.${site_code}${NC}"
+    fi
     echo ""
-    log "  2. Deploy jumphost:"
+    log "  2. Deploy jumphost (platform auto-detected):"
     log "     ${GREEN}./scripts/deploy-jumphost.sh ${site_code}${NC}"
     echo ""
     log "  3. Create clusters:"
     log "     ${GREEN}./scripts/new-cluster.sh ${site_code} <cluster-name>${NC}"
     echo ""
-    log "  4. Deploy infrastructure (platform auto-detected from site):"
+    log "  4. Deploy infrastructure (platform auto-detected):"
     log "     ${GREEN}./scripts/deploy-infrastructure.sh ${site_code} clusters/omni/${site_code}/<cluster>.yaml${NC}"
     echo ""
     log "Documentation: ${GREEN}clusters/omni/${site_code}/README.md${NC}"

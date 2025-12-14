@@ -54,9 +54,14 @@ usage() {
     cat << EOF
 ${GREEN}Usage:${NC} $0 <site-code>
 
-${YELLOW}Deploy a jumphost VM for a specific site (vSphere only).${NC}
+${YELLOW}Deploy a jumphost VM for a specific site.${NC}
 
-${YELLOW}Note:${NC} Jumphost deployment is currently only supported for vSphere sites.
+${GREEN}Supported Platforms:${NC}
+  • vSphere - Deploys Ubuntu VM with cloud-init
+  • Proxmox - Deploys Ubuntu VM with cloud-init
+
+${GREEN}Platform Detection:${NC}
+  Platform is automatically detected from site metadata (.site-metadata).
 
 ${GREEN}Site Code Format:${NC}
   <city><zone><env>
@@ -137,9 +142,10 @@ check_prerequisites() {
 # Check if site-specific terraform.tfvars exists
 check_config() {
     local site_code=$1
+    local platform=$2
     local config_file="$TERRAFORM_DIR/terraform.tfvars.$site_code"
     
-    log "Checking configuration for site: $site_code"
+    log "Checking configuration for site: $site_code (platform: $platform)"
     
     if [ ! -f "$config_file" ]; then
         error "Configuration file not found: $config_file"
@@ -150,7 +156,11 @@ check_config() {
         info ""
         info "Make sure to set:"
         info "  - jumphost_hostname = \"jumphost-$site_code\""
-        info "  - Site-specific vSphere/network settings"
+        if [[ "$platform" == "vsphere" ]]; then
+            info "  - Site-specific vSphere/network settings"
+        else
+            info "  - Site-specific Proxmox settings"
+        fi
         exit 1
     fi
     
@@ -313,24 +323,30 @@ main() {
     echo -e "${GREEN}║      Talos Hybrid GitOps - Jumphost Deployment            ║${NC}"
     echo -e "${GREEN}╚════════════════════════════════════════════════════════════╝${NC}"
     echo ""
-    echo -e "${BLUE}Target Site:${NC} $site_code"
-    echo ""
+    echo -e "${BLUE}Target Site:${NC}   $site_code"
     
     validate_site_code "$site_code"
     
     # Load site metadata to get platform
     load_site_metadata "$site_code" || exit 1
     
-    # Check if platform is vSphere
-    if [[ "$PLATFORM" != "vsphere" ]]; then
-        error "Jumphost deployment is only supported for vSphere sites"
-        error "Site $site_code is configured for platform: $PLATFORM"
-        error "Proxmox sites should use Proxmox console or SSH directly"
+    local platform="$PLATFORM"
+    
+    # Set Terraform directory based on platform
+    if [[ "$platform" == "vsphere" ]]; then
+        TERRAFORM_DIR="$PROJECT_ROOT/terraform/jumphost-vsphere"
+    elif [[ "$platform" == "proxmox" ]]; then
+        TERRAFORM_DIR="$PROJECT_ROOT/terraform/jumphost-proxmox"
+    else
+        error "Unsupported platform: $platform"
         exit 1
     fi
     
+    echo -e "${BLUE}Platform:${NC}      $platform"
+    echo ""
+    
     check_prerequisites
-    check_config "$site_code"
+    check_config "$site_code" "$platform"
     init_terraform "$site_code"
     plan_terraform "$site_code"
     

@@ -1,0 +1,30 @@
+# Proxmox Connection
+proxmox_api_url      = "https://proxmox.example.com:8006/api2/json"
+proxmox_api_user     = "root@pam"
+proxmox_api_password = "your-password"
+proxmox_tls_insecure = true
+
+# Proxmox Resources
+proxmox_node    = "pve"
+proxmox_storage = "local-lvm"
+proxmox_bridge  = "vmbr0"
+
+# Ubuntu Template
+# Create Ubuntu cloud image template in Proxmox first
+# See: https://pve.proxmox.com/wiki/Cloud-Init_Support
+ubuntu_template_id = 9000
+
+# Jumphost Configuration
+jumphost_hostname = "talos-jumphost"
+jumphost_cpu      = 2
+jumphost_memory   = 4096
+jumphost_disk_size = 50
+
+# User Configuration
+jumphost_username = "ubuntu"
+jumphost_ssh_keys = [
+  "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAB... user@host",
+]
+
+# Optional: Set timezone
+jumphost_timezone = "UTC"
