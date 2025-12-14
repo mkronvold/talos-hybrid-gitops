@@ -37,7 +37,7 @@ This document shows the complete workflow from empty infrastructure to running a
 
 ```bash
 # Clone repository
-git clone https://github.com/yourorg/talos-hybrid-gitops.git
+git clone https://github.com/mkronvold/talos-hybrid-gitops.git
 cd talos-hybrid-gitops
 
 # Install tools
@@ -175,7 +175,7 @@ export GITHUB_TOKEN=ghp_xxxxxxxxxxxxx
 
 # Bootstrap Flux
 flux bootstrap github \
-  --owner=yourorg \
+  --owner=mkronvold \
   --repository=talos-hybrid-gitops \
   --branch=main \
   --path=kubernetes/clusters/prod-vsphere \

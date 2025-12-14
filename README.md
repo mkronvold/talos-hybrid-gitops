@@ -63,7 +63,7 @@ omnictl apply -f clusters/omni/prod-vsphere.yaml
 ### 3. Bootstrap GitOps (Flux)
 ```bash
 flux bootstrap github \
-  --owner=<your-org> \
+  --owner=mkronvold \
   --repository=talos-hybrid-gitops \
   --path=kubernetes/clusters/prod
 ```
