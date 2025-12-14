@@ -380,19 +380,80 @@ clusters/omni/la2p/.site-metadata  # Zone 2
 clusters/omni/la3p/.site-metadata  # Zone 3
 ```
 
+## Modifying Site Metadata
+
+Use the `modify-site.sh` script to safely modify site metadata:
+
+### Show Current Metadata
+
+```bash
+./scripts/modify-site.sh ny1d --show
+```
+
+Output:
+```
+╔════════════════════════════════════════════════════════════╗
+║              Site Metadata: ny1d                           ║
+╚════════════════════════════════════════════════════════════╝
+
+Site Code:    ny1d
+Location:     New York Zone 1
+Platform:     vsphere
+Environment:  development
+Created:      2025-12-14T03:18:13+00:00
+
+Configuration Files:
+  Terraform (infrastructure):
+    terraform/vsphere/terraform.tfvars.ny1d
+  Terraform (jumphost):
+    terraform/jumphost-vsphere/terraform.tfvars.ny1d
+  Clusters:
+    clusters/omni/ny1d/
+```
+
+### Update Location Name
+
+```bash
+./scripts/modify-site.sh ny1d --location "New York Zone 1 Primary"
+```
+
+This safely updates the `LOCATION` field and adds a `MODIFIED` timestamp.
+
+### Change Platform (Destructive)
+
+```bash
+./scripts/modify-site.sh ny1d --platform proxmox
+```
+
+**Warning:** This is a destructive operation that:
+1. Prompts for confirmation (type "yes")
+2. Archives old configurations to `.archive-YYYYMMDD-HHMMSS/`
+3. Updates platform in metadata
+4. Provides detailed next steps for migration
+
 ## Best Practices
 
 1. ✅ **Always use new-site.sh** - Never create `.site-metadata` manually
-2. ✅ **Commit to git** - Track site configuration in version control
-3. ✅ **Descriptive locations** - Use clear, human-readable location names
-4. ✅ **Consistent naming** - Follow site code format strictly
-5. ✅ **Document changes** - Update site README when modifying configuration
-6. ❌ **Never edit manually** - Recreate site if changes needed
-7. ❌ **Don't ignore in git** - Metadata must be tracked
-8. ❌ **Don't duplicate** - One site per site code
+2. ✅ **Use modify-site.sh** - Never edit `.site-metadata` manually
+3. ✅ **Commit to git** - Track site configuration in version control
+4. ✅ **Descriptive locations** - Use clear, human-readable location names
+5. ✅ **Consistent naming** - Follow site code format strictly
+6. ✅ **Document changes** - Update site README when modifying configuration
+7. ❌ **Never edit manually** - Use modify-site.sh or recreate site
+8. ❌ **Don't ignore in git** - Metadata must be tracked
+9. ❌ **Don't duplicate** - One site per site code
+
+## Available Scripts
+
+- **new-site.sh** - Create new site with metadata
+- **modify-site.sh** - Safely modify site metadata
+- **new-cluster.sh** - Create cluster in site
+- **deploy-jumphost.sh** - Deploy jumphost (platform auto-detected)
+- **deploy-infrastructure.sh** - Deploy infrastructure (platform auto-detected)
 
 ## Related Documentation
 
+- [modify-site.sh documentation](../scripts/README.md#modify-sitesh)
 - [new-site.sh documentation](../scripts/README.md#new-sitesh)
 - [Site and cluster management](../scripts/README.md#site-and-cluster-management-scripts)
 - [Complete workflow examples](../WORKFLOW.md)
@@ -400,4 +461,4 @@ clusters/omni/la3p/.site-metadata  # Zone 3
 
 ---
 
-**Last Updated:** 2025-12-14T03:18:13Z
+**Last Updated:** 2025-12-14T03:22:41Z

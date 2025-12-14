@@ -15,6 +15,66 @@ This directory contains automation scripts for managing the Talos Hybrid GitOps 
 
 ## Site and Cluster Management Scripts
 
+### modify-site.sh
+
+**Purpose:** Safely modify site metadata and configuration.
+
+**What it does:**
+1. Shows current site metadata
+2. Updates location name
+3. Changes platform (with safety warnings)
+4. Archives old configurations during platform changes
+5. Provides next steps after modifications
+
+**Features:**
+- Safe metadata editing (no manual file editing)
+- Platform change with destructive operation warnings
+- Configuration archiving before changes
+- Validation of all inputs
+- Comprehensive next steps guidance
+
+**Usage:**
+
+```bash
+# Show current site metadata
+./scripts/modify-site.sh ny1d --show
+
+# Update location name
+./scripts/modify-site.sh ny1d --location "New York Zone 1 Primary"
+
+# Change platform (destructive - requires confirmation)
+./scripts/modify-site.sh ny1d --platform proxmox
+```
+
+**Options:**
+- `--show` - Display current site metadata and configuration files
+- `--location <name>` - Update the location name
+- `--platform <type>` - Change platform (vsphere or proxmox)
+- `--help` - Show help message
+
+**Platform Change Warning:**
+
+Changing platform is a **destructive operation** that requires:
+1. Destroying existing infrastructure
+2. Archiving old Terraform configurations
+3. Creating new platform-specific configurations
+4. Redeploying all clusters and resources
+
+The script will:
+- Prompt for confirmation (type "yes")
+- Archive old configurations to `.archive-YYYYMMDD-HHMMSS/`
+- Update metadata file
+- Provide detailed next steps
+
+**When to Use:**
+- ✅ Fixing typos in location name
+- ✅ Updating location description
+- ✅ Migrating site to different platform
+- ❌ Changing site code (use new-site.sh instead)
+- ❌ Changing environment (recreate site with correct code)
+
+---
+
 ### new-site.sh
 
 **Purpose:** Creates a new site with all necessary scaffolding and configuration files.
@@ -552,4 +612,4 @@ source ~/.bashrc  # or source ~/.zshrc
 
 ---
 
-**Last Updated:** 2025-12-14T03:14:20.173Z
+**Last Updated:** 2025-12-14T03:22:41.859Z
