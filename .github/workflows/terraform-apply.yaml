@@ -1,0 +1,108 @@
+name: Terraform Apply
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'terraform/**'
+  pull_request:
+    paths:
+      - 'terraform/**'
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: 'Platform to deploy (vsphere or proxmox)'
+        required: true
+        type: choice
+        options:
+          - vsphere
+          - proxmox
+
+env:
+  TF_VERSION: 1.6.0
+
+jobs:
+  terraform-plan:
+    name: Terraform Plan
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        platform: 
+          - vsphere
+          - proxmox
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Init
+        working-directory: terraform/${{ matrix.platform }}
+        run: terraform init
+
+      - name: Terraform Format Check
+        working-directory: terraform/${{ matrix.platform }}
+        run: terraform fmt -check
+
+      - name: Terraform Validate
+        working-directory: terraform/${{ matrix.platform }}
+        run: terraform validate
+
+      - name: Terraform Plan
+        working-directory: terraform/${{ matrix.platform }}
+        env:
+          TF_VAR_vsphere_user: ${{ secrets.VSPHERE_USER }}
+          TF_VAR_vsphere_password: ${{ secrets.VSPHERE_PASSWORD }}
+          TF_VAR_proxmox_username: ${{ secrets.PROXMOX_USERNAME }}
+          TF_VAR_proxmox_password: ${{ secrets.PROXMOX_PASSWORD }}
+        run: terraform plan -out=tfplan
+
+      - name: Upload Plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-${{ matrix.platform }}
+          path: terraform/${{ matrix.platform }}/tfplan
+
+  terraform-apply:
+    name: Terraform Apply
+    runs-on: ubuntu-latest
+    needs: terraform-plan
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    strategy:
+      matrix:
+        platform: 
+          - vsphere
+          - proxmox
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Download Plan
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan-${{ matrix.platform }}
+          path: terraform/${{ matrix.platform }}
+
+      - name: Terraform Init
+        working-directory: terraform/${{ matrix.platform }}
+        run: terraform init
+
+      - name: Terraform Apply
+        working-directory: terraform/${{ matrix.platform }}
+        env:
+          TF_VAR_vsphere_user: ${{ secrets.VSPHERE_USER }}
+          TF_VAR_vsphere_password: ${{ secrets.VSPHERE_PASSWORD }}
+          TF_VAR_proxmox_username: ${{ secrets.PROXMOX_USERNAME }}
+          TF_VAR_proxmox_password: ${{ secrets.PROXMOX_PASSWORD }}
+        run: terraform apply tfplan

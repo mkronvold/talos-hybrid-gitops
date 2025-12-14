@@ -1,0 +1,76 @@
+name: Omni Cluster Apply
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'clusters/omni/**'
+  pull_request:
+    paths:
+      - 'clusters/omni/**'
+  workflow_dispatch:
+
+jobs:
+  validate-omni-configs:
+    name: Validate Omni Configurations
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup omnictl
+        run: |
+          curl -Lo omnictl https://github.com/siderolabs/omni/releases/latest/download/omnictl-linux-amd64
+          chmod +x omnictl
+          sudo mv omnictl /usr/local/bin/
+
+      - name: Validate YAML Syntax
+        run: |
+          for file in clusters/omni/*.yaml; do
+            echo "Validating $file"
+            yamllint "$file" || true
+          done
+
+  apply-omni-configs:
+    name: Apply Omni Configurations
+    runs-on: ubuntu-latest
+    needs: validate-omni-configs
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup omnictl
+        run: |
+          curl -Lo omnictl https://github.com/siderolabs/omni/releases/latest/download/omnictl-linux-amd64
+          chmod +x omnictl
+          sudo mv omnictl /usr/local/bin/
+
+      - name: Configure Omni
+        env:
+          OMNI_ENDPOINT: ${{ secrets.OMNI_ENDPOINT }}
+          OMNI_API_KEY: ${{ secrets.OMNI_API_KEY }}
+        run: |
+          omnictl config new --endpoint "$OMNI_ENDPOINT"
+          # Note: API key authentication setup depends on Omni version
+
+      - name: Apply Cluster Configurations
+        env:
+          OMNI_ENDPOINT: ${{ secrets.OMNI_ENDPOINT }}
+          OMNI_API_KEY: ${{ secrets.OMNI_API_KEY }}
+        run: |
+          for file in clusters/omni/*.yaml; do
+            echo "Applying $file"
+            omnictl apply -f "$file"
+          done
+
+      - name: Get Cluster Status
+        env:
+          OMNI_ENDPOINT: ${{ secrets.OMNI_ENDPOINT }}
+          OMNI_API_KEY: ${{ secrets.OMNI_API_KEY }}
+        run: |
+          echo "Cluster status:"
+          omnictl get clusters

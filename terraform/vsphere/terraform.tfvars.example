@@ -1,0 +1,25 @@
+# Copy this file to terraform.tfvars and fill in your values
+
+# vSphere credentials
+vsphere_user       = "administrator@vsphere.local"
+vsphere_password   = "your-password"
+vsphere_server     = "vcenter.example.com"
+vsphere_insecure   = true  # Set to false with valid SSL cert
+
+# vSphere resources
+vsphere_datacenter    = "Datacenter"
+vsphere_datastore     = "datastore1"
+vsphere_cluster       = "Cluster"
+vsphere_network       = "VM Network"
+vsphere_resource_pool = "Resources"
+vsphere_folder        = "Talos"
+
+# Talos configuration
+talos_template_name = "talos-v1.9.5"
+cluster_name        = "prod-vsphere"
+
+# Node configuration
+node_count     = 6  # 3 control planes + 3 workers
+node_cpu       = 4
+node_memory    = 8192
+node_disk_size = 100

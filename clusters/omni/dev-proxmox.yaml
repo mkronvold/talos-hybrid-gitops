@@ -1,0 +1,96 @@
+---
+# Development cluster on Proxmox
+apiVersion: v1alpha1
+kind: Cluster
+name: dev-proxmox
+labels:
+  environment: development
+  platform: proxmox
+kubernetes:
+  version: v1.29.0
+talos:
+  version: v1.9.5
+features:
+  enableWorkloadProxy: true
+  diskEncryption: false
+  useEmbeddedDiscoveryService: true
+
+---
+# Single control plane for dev (can be upgraded to 3 for HA)
+apiVersion: v1alpha1
+kind: MachineSet
+name: dev-proxmox-control-planes
+cluster: dev-proxmox
+machineClass:
+  name: control-plane
+  machineCount: 1
+
+  allocationStrategy:
+    type: static
+
+  requirements:
+    - key: "platform"
+      operator: "In"
+      values: ["proxmox"]
+
+patches:
+  - |
+    machine:
+      install:
+        disk: /dev/sda
+      kubelet:
+        extraArgs:
+          rotate-server-certificates: "true"
+      network:
+        interfaces:
+          - interface: eth0
+            dhcp: true
+      time:
+        servers:
+          - time.cloudflare.com
+    cluster:
+      controllerManager:
+        extraArgs:
+          bind-address: "0.0.0.0"
+      scheduler:
+        extraArgs:
+          bind-address: "0.0.0.0"
+      apiServer:
+        certSANs:
+          - dev-proxmox.example.com
+      discovery:
+        enabled: true
+
+---
+# Worker machine set
+apiVersion: v1alpha1
+kind: MachineSet
+name: dev-proxmox-workers
+cluster: dev-proxmox
+machineClass:
+  name: worker
+  machineCount: 2
+
+  allocationStrategy:
+    type: static
+
+  requirements:
+    - key: "platform"
+      operator: "In"
+      values: ["proxmox"]
+
+patches:
+  - |
+    machine:
+      install:
+        disk: /dev/sda
+      kubelet:
+        extraArgs:
+          rotate-server-certificates: "true"
+      network:
+        interfaces:
+          - interface: eth0
+            dhcp: true
+      time:
+        servers:
+          - time.cloudflare.com

@@ -1,0 +1,104 @@
+---
+# Production cluster on vSphere
+apiVersion: v1alpha1
+kind: Cluster
+name: prod-vsphere
+labels:
+  environment: production
+  platform: vsphere
+kubernetes:
+  version: v1.29.0
+talos:
+  version: v1.9.5
+features:
+  enableWorkloadProxy: true
+  diskEncryption: false
+  useEmbeddedDiscoveryService: true
+
+---
+# Control plane machine set
+apiVersion: v1alpha1
+kind: MachineSet
+name: prod-vsphere-control-planes
+cluster: prod-vsphere
+machineClass:
+  name: control-plane
+  machineCount: 3
+  
+  # Allocation strategy - Omni will pick from available machines
+  allocationStrategy:
+    type: static  # Manually assign machines via Omni UI or labels
+
+  # Optional: Machine requirements
+  requirements:
+    - key: "platform"
+      operator: "In"
+      values: ["vsphere"]
+
+# Talos machine configuration patches
+patches:
+  - |
+    machine:
+      install:
+        disk: /dev/sda
+      kubelet:
+        extraArgs:
+          rotate-server-certificates: "true"
+      network:
+        interfaces:
+          - interface: eth0
+            dhcp: true
+      time:
+        servers:
+          - time.cloudflare.com
+    cluster:
+      controllerManager:
+        extraArgs:
+          bind-address: "0.0.0.0"
+      scheduler:
+        extraArgs:
+          bind-address: "0.0.0.0"
+      apiServer:
+        certSANs:
+          - prod-vsphere.example.com
+      proxy:
+        disabled: false
+      discovery:
+        enabled: true
+        registries:
+          service:
+            disabled: false
+
+---
+# Worker machine set
+apiVersion: v1alpha1
+kind: MachineSet
+name: prod-vsphere-workers
+cluster: prod-vsphere
+machineClass:
+  name: worker
+  machineCount: 3
+  
+  allocationStrategy:
+    type: static
+
+  requirements:
+    - key: "platform"
+      operator: "In"
+      values: ["vsphere"]
+
+patches:
+  - |
+    machine:
+      install:
+        disk: /dev/sda
+      kubelet:
+        extraArgs:
+          rotate-server-certificates: "true"
+      network:
+        interfaces:
+          - interface: eth0
+            dhcp: true
+      time:
+        servers:
+          - time.cloudflare.com
