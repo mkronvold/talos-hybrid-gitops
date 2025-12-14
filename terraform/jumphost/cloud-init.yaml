@@ -1,0 +1,82 @@
+#cloud-config
+hostname: ${hostname}
+fqdn: ${hostname}.local
+manage_etc_hosts: true
+
+# Set timezone
+timezone: ${timezone}
+
+# Create user
+users:
+  - name: ${username}
+    groups: sudo
+    shell: /bin/bash
+    sudo: ['ALL=(ALL) NOPASSWD:ALL']
+    ssh_authorized_keys:
+%{ for key in ssh_keys ~}
+      - ${key}
+%{ endfor ~}
+
+# Update packages on first boot
+package_update: true
+package_upgrade: true
+
+# Install essential packages
+packages:
+  - curl
+  - wget
+  - git
+  - vim
+  - tmux
+  - unzip
+  - jq
+  - build-essential
+  - ca-certificates
+  - gnupg
+  - lsb-release
+
+# Run commands on first boot
+runcmd:
+  # Clone the talos-hybrid-gitops repository
+  - su - ${username} -c "git clone https://github.com/mkronvold/talos-hybrid-gitops.git ~/talos-hybrid-gitops"
+  
+  # Install dependencies
+  - su - ${username} -c "cd ~/talos-hybrid-gitops && ./scripts/install-dependencies.sh"
+  - su - ${username} -c "cd ~/talos-hybrid-gitops && ./scripts/install-node-copilot.sh"
+  
+  # Create convenience aliases
+  - echo 'alias k=kubectl' >> /home/${username}/.bashrc
+  - echo 'alias tf=terraform' >> /home/${username}/.bashrc
+  - echo 'export KUBECONFIG=~/talos-hybrid-gitops/kubeconfig' >> /home/${username}/.bashrc
+  
+  # Set up completion
+  - echo 'source <(kubectl completion bash)' >> /home/${username}/.bashrc
+  - echo 'complete -F __start_kubectl k' >> /home/${username}/.bashrc
+  
+  # Fix ownership
+  - chown -R ${username}:${username} /home/${username}
+
+# Message of the day
+final_message: |
+  ====================================
+  Talos Hybrid GitOps Jumphost Ready!
+  ====================================
+  
+  Repository: ~/talos-hybrid-gitops
+  
+  Installed tools:
+    - Terraform
+    - kubectl
+    - Flux CD
+    - Omni CLI (omnictl)
+    - Talosctl
+    - Node.js & npm
+    - GitHub Copilot CLI
+  
+  Next steps:
+    1. Configure Terraform: cd ~/talos-hybrid-gitops/terraform/vsphere
+    2. Set Omni credentials: export OMNI_ENDPOINT=... OMNI_API_KEY=...
+    3. Deploy cluster: cd ~/talos-hybrid-gitops && ./scripts/deploy-infrastructure.sh
+  
+  Documentation: ~/talos-hybrid-gitops/README.md
+  ====================================

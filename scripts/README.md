@@ -100,6 +100,82 @@ github-copilot-cli auth
 
 ## Deployment Scripts
 
+### deploy-jumphost.sh
+
+**Purpose:** Deploys an Ubuntu management jumphost VM with all tools pre-installed.
+
+**What it does:**
+1. Validates prerequisites (Terraform)
+2. Checks for terraform.tfvars configuration
+3. Initializes and plans Terraform deployment
+4. Deploys Ubuntu VM to vSphere
+5. Cloud-init automatically installs:
+   - Talos Hybrid GitOps repository
+   - All CLI tools (Terraform, kubectl, Flux, omnictl, talosctl)
+   - Node.js, npm, and GitHub Copilot CLI
+   - Essential development tools
+
+**Features:**
+- Automated VM provisioning with cloud-init
+- Pre-configured with all necessary tools
+- SSH key authentication
+- Customizable VM specifications
+- Saves connection information to `jumphost-info.txt`
+
+**Usage:**
+
+```bash
+# 1. Configure terraform.tfvars
+cd terraform/jumphost
+cp terraform.tfvars.example terraform.tfvars
+# Edit with your vSphere settings and SSH keys
+
+# 2. Deploy jumphost
+cd ../..
+./scripts/deploy-jumphost.sh
+```
+
+**Prerequisites:**
+- Terraform installed locally
+- vSphere credentials configured
+- Ubuntu cloud image OVA template in vSphere
+- SSH public key(s) for access
+
+**Ubuntu Cloud Image Setup:**
+
+Download Ubuntu cloud image:
+```bash
+# Ubuntu 22.04 LTS
+wget https://cloud-images.ubuntu.com/releases/22.04/release/ubuntu-22.04-server-cloudimg-amd64.ova
+
+# Import to vSphere as template named "ubuntu-22.04-cloud"
+```
+
+**Configuration Options:**
+- `jumphost_hostname` - VM hostname (default: talos-jumphost)
+- `jumphost_cpu` - Number of CPUs (default: 2)
+- `jumphost_memory` - Memory in MB (default: 4096)
+- `jumphost_disk_size` - Disk size in GB (default: 50)
+- `jumphost_ssh_keys` - List of SSH public keys
+
+**Post-Deployment:**
+
+Wait 5-10 minutes for cloud-init to complete, then SSH:
+```bash
+ssh ubuntu@<jumphost-ip>
+
+# Check cloud-init progress
+tail -f /var/log/cloud-init-output.log
+
+# Verify tools installed
+cd ~/talos-hybrid-gitops
+terraform version
+kubectl version --client
+omnictl version
+```
+
+---
+
 ### deploy-infrastructure.sh
 
 **Purpose:** Automated end-to-end deployment of infrastructure and Talos clusters using the hybrid approach.
@@ -169,7 +245,12 @@ kubectl get nodes
 
 ## Script Execution Order
 
-For a fresh setup, run scripts in this order:
+### Option A: Using a Jumphost (Recommended)
+
+1. **deploy-jumphost.sh** - Deploy Ubuntu management VM (includes all tools automatically)
+2. SSH to jumphost and run **deploy-infrastructure.sh** - Deploy your infrastructure and clusters
+
+### Option B: Local Installation
 
 1. **install-dependencies.sh** - Install infrastructure management tools
 2. **install-node-copilot.sh** - (Optional) Install Node.js and Copilot CLI for development
@@ -250,4 +331,4 @@ source ~/.bashrc  # or source ~/.zshrc
 
 ---
 
-**Last Updated:** 2025-12-14
+**Last Updated:** 2025-12-14T01:24:35.845Z

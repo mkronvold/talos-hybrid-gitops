@@ -12,6 +12,8 @@ NC='\033[0m' # No Color
 TERRAFORM_VERSION="1.6.0"
 KUBECTL_VERSION="stable"
 TALOSCTL_VERSION="v1.9.5"
+NVM_VERSION="v0.40.1"
+NODE_VERSION="lts"
 
 # Installation directory
 INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"

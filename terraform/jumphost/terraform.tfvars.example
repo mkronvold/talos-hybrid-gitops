@@ -1,0 +1,32 @@
+# vSphere Connection
+vsphere_server     = "vcenter.example.com"
+vsphere_user       = "administrator@vsphere.local"
+vsphere_password   = "your-password"
+vsphere_insecure   = true
+
+# vSphere Resources
+vsphere_datacenter    = "Datacenter"
+vsphere_cluster       = "Cluster"
+vsphere_datastore     = "datastore1"
+vsphere_network       = "VM Network"
+vsphere_resource_pool = "Cluster/Resources"
+vsphere_folder        = "Management"
+
+# Ubuntu Template
+# Download Ubuntu cloud image OVA from: https://cloud-images.ubuntu.com/releases/22.04/release/
+ubuntu_template = "ubuntu-22.04-cloud"
+
+# Jumphost Configuration
+jumphost_hostname = "talos-jumphost"
+jumphost_cpu      = 2
+jumphost_memory   = 4096
+jumphost_disk_size = 50
+
+# User Configuration
+jumphost_username = "ubuntu"
+jumphost_ssh_keys = [
+  "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAB... user@host",
+]
+
+# Optional: Set timezone
+jumphost_timezone = "UTC"
