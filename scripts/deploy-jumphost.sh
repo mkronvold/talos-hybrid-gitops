@@ -28,12 +28,35 @@ info() {
     echo -e "${BLUE}[INFO]${NC} $*"
 }
 
+# Load site metadata
+load_site_metadata() {
+    local site_code=$1
+    local metadata_file="${PROJECT_ROOT}/clusters/omni/${site_code}/.site-metadata"
+    
+    if [[ ! -f "$metadata_file" ]]; then
+        error "Site metadata not found: $metadata_file"
+        error "Site may not exist or was not created with new-site.sh"
+        return 1
+    fi
+    
+    source "$metadata_file"
+    
+    if [[ -z "${PLATFORM:-}" ]]; then
+        error "Platform not defined in site metadata"
+        return 1
+    fi
+    
+    log "✓ Loaded site metadata: $site_code (platform: $PLATFORM)"
+}
+
 # Usage information
 usage() {
     cat << EOF
 ${GREEN}Usage:${NC} $0 <site-code>
 
-${YELLOW}Deploy a jumphost VM for a specific site.${NC}
+${YELLOW}Deploy a jumphost VM for a specific site (vSphere only).${NC}
+
+${YELLOW}Note:${NC} Jumphost deployment is currently only supported for vSphere sites.
 
 ${GREEN}Site Code Format:${NC}
   <city><zone><env>
@@ -294,6 +317,18 @@ main() {
     echo ""
     
     validate_site_code "$site_code"
+    
+    # Load site metadata to get platform
+    load_site_metadata "$site_code" || exit 1
+    
+    # Check if platform is vSphere
+    if [[ "$PLATFORM" != "vsphere" ]]; then
+        error "Jumphost deployment is only supported for vSphere sites"
+        error "Site $site_code is configured for platform: $PLATFORM"
+        error "Proxmox sites should use Proxmox console or SSH directly"
+        exit 1
+    fi
+    
     check_prerequisites
     check_config "$site_code"
     init_terraform "$site_code"

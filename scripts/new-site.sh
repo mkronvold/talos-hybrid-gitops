@@ -71,9 +71,9 @@ ${GREEN}Examples:${NC}
     --vcenter "vcenter-sf.example.com"
 
 ${GREEN}What gets created:${NC}
-  • terraform/vsphere/terraform.tfvars.<site-code>
-  • terraform/proxmox/terraform.tfvars.<site-code>
-  • terraform/jumphost/terraform.tfvars.<site-code>
+  • clusters/omni/<site-code>/.site-metadata (platform tracking)
+  • terraform/<platform>/terraform.tfvars.<site-code>
+  • terraform/jumphost/terraform.tfvars.<site-code> (vSphere only)
   • clusters/omni/<site-code>/README.md
   • Site documentation and examples
 
@@ -275,6 +275,29 @@ EOF
     log "✓ Created: $tfvars_file"
 }
 
+# Create site metadata file
+create_site_metadata() {
+    local site_code=$1
+    local location=$2
+    local platform=$3
+    local environment=$(get_environment "$site_code")
+    
+    local metadata_file="${PROJECT_ROOT}/clusters/omni/${site_code}/.site-metadata"
+    
+    log "Creating site metadata..."
+    
+    cat > "$metadata_file" <<EOF
+# Site Metadata - DO NOT EDIT MANUALLY
+SITE_CODE="${site_code}"
+LOCATION="${location}"
+PLATFORM="${platform}"
+ENVIRONMENT="${environment}"
+CREATED="$(date -Iseconds)"
+EOF
+    
+    log "✓ Created: $metadata_file"
+}
+
 # Create site README
 create_site_readme() {
     local site_code=$1
@@ -469,9 +492,16 @@ main() {
     
     # Create site structure
     create_directories "$site_code"
-    create_vsphere_tfvars "$site_code" "$location" "$datacenter" "$cluster" "$datastore" "$network" "$vcenter" "$folder"
-    create_proxmox_tfvars "$site_code" "$location"
-    create_jumphost_tfvars "$site_code" "$location" "$datacenter" "$cluster" "$datastore" "$network" "$vcenter" "$folder"
+    create_site_metadata "$site_code" "$location" "$platform"
+    
+    # Create platform-specific Terraform configs
+    if [[ "$platform" == "vsphere" ]]; then
+        create_vsphere_tfvars "$site_code" "$location" "$datacenter" "$cluster" "$datastore" "$network" "$vcenter" "$folder"
+        create_jumphost_tfvars "$site_code" "$location" "$datacenter" "$cluster" "$datastore" "$network" "$vcenter" "$folder"
+    else
+        create_proxmox_tfvars "$site_code" "$location"
+    fi
+    
     create_site_readme "$site_code" "$location" "$platform"
     
     echo ""
@@ -493,8 +523,8 @@ main() {
     log "  3. Create clusters:"
     log "     ${GREEN}./scripts/new-cluster.sh ${site_code} <cluster-name>${NC}"
     echo ""
-    log "  4. Deploy infrastructure:"
-    log "     ${GREEN}./scripts/deploy-infrastructure.sh ${site_code} ${platform} clusters/omni/${site_code}/<cluster>.yaml${NC}"
+    log "  4. Deploy infrastructure (platform auto-detected from site):"
+    log "     ${GREEN}./scripts/deploy-infrastructure.sh ${site_code} clusters/omni/${site_code}/<cluster>.yaml${NC}"
     echo ""
     log "Documentation: ${GREEN}clusters/omni/${site_code}/README.md${NC}"
     echo ""

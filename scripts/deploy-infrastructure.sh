@@ -30,17 +30,40 @@ info() {
     echo -e "${BLUE}[INFO]${NC} $*"
 }
 
+# Load site metadata
+load_site_metadata() {
+    local site_code=$1
+    local metadata_file="${PROJECT_ROOT}/clusters/omni/${site_code}/.site-metadata"
+    
+    if [[ ! -f "$metadata_file" ]]; then
+        error "Site metadata not found: $metadata_file"
+        error "Site may not exist or was not created with new-site.sh"
+        return 1
+    fi
+    
+    source "$metadata_file"
+    
+    if [[ -z "${PLATFORM:-}" ]]; then
+        error "Platform not defined in site metadata"
+        return 1
+    fi
+    
+    log "✓ Loaded site metadata: $site_code (platform: $PLATFORM)"
+}
+
 # Usage information
 usage() {
     cat << EOF
-${GREEN}Usage:${NC} $0 <site-code> <platform> [cluster-file]
+${GREEN}Usage:${NC} $0 <site-code> [cluster-file]
 
 ${YELLOW}Deploy infrastructure and Talos clusters for a specific site.${NC}
 
 ${GREEN}Arguments:${NC}
   site-code     Site identifier (e.g., ny1d, sf2p, la1s)
-  platform      Infrastructure platform: vsphere or proxmox
   cluster-file  (Optional) Path to Omni cluster YAML configuration
+
+${GREEN}Note:${NC}
+  Platform (vsphere/proxmox) is automatically detected from site configuration.
 
 ${GREEN}Site Code Format:${NC}
   <city><zone><env>
@@ -51,14 +74,14 @@ ${GREEN}Site Code Format:${NC}
     la1s - Los Angeles, Zone 1, Staging
 
 ${GREEN}Examples:${NC}
-  # Deploy NY Zone 1 Dev cluster on vSphere
-  $0 ny1d vsphere clusters/omni/ny1d-cluster.yaml
+  # Deploy NY Zone 1 Dev cluster (platform auto-detected)
+  $0 ny1d clusters/omni/ny1d/web.yaml
   
-  # Deploy SF Zone 2 Prod cluster on Proxmox
-  $0 sf2p proxmox clusters/omni/sf2p-cluster.yaml
+  # Deploy SF Zone 2 Prod cluster (platform auto-detected)
+  $0 sf2p clusters/omni/sf2p/data.yaml
   
   # Deploy infrastructure only (manual cluster config later)
-  $0 la1s vsphere
+  $0 la1s
 
 ${GREEN}Required Environment Variables:${NC}
   OMNI_ENDPOINT  - Omni API endpoint (https://omni.siderolabs.com)
@@ -257,25 +280,22 @@ get_kubeconfig() {
 # Main deployment workflow
 main() {
     # Parse arguments
-    if [[ $# -lt 2 ]]; then
+    if [[ $# -lt 1 ]]; then
         error "Missing required arguments"
         echo ""
         usage
     fi
     
     local site_code=$1
-    local platform=$2
-    local cluster_file=${3:-}
+    local cluster_file=${2:-}
     
     # Convert site code to lowercase
     site_code=$(echo "$site_code" | tr '[:upper:]' '[:lower:]')
     
-    # Validate platform
-    if [[ "$platform" != "vsphere" && "$platform" != "proxmox" ]]; then
-        error "Invalid platform: $platform"
-        error "Must be: vsphere or proxmox"
-        usage
-    fi
+    # Load site metadata to get platform
+    load_site_metadata "$site_code" || exit 1
+    
+    local platform="$PLATFORM"
     
     echo -e "${GREEN}╔════════════════════════════════════════════════════════════╗${NC}"
     echo -e "${GREEN}║    Talos Hybrid GitOps - Infrastructure Deployment        ║${NC}"

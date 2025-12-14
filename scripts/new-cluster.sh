@@ -47,8 +47,10 @@ ${GREEN}Options:${NC}
   --disk <gb>            Disk size in GB per node (default: 100)
   --k8s-version <ver>    Kubernetes version (default: v1.29.0)
   --talos-version <ver>  Talos version (default: v1.9.5)
-  --platform <name>      Platform label: vsphere or proxmox (default: vsphere)
   --help                 Show this help message
+
+${GREEN}Note:${NC}
+  Platform is automatically detected from site configuration.
 
 ${GREEN}Examples:${NC}
   # Create basic cluster with defaults (3 CP + 3 workers)
@@ -360,7 +362,6 @@ main() {
     local disk=100
     local k8s_version="v1.29.0"
     local talos_version="v1.9.5"
-    local platform="vsphere"
     
     # Parse options
     while [[ $# -gt 0 ]]; do
@@ -393,10 +394,6 @@ main() {
                 talos_version="$2"
                 shift 2
                 ;;
-            --platform)
-                platform="$2"
-                shift 2
-                ;;
             --help)
                 usage
                 ;;
@@ -406,6 +403,10 @@ main() {
                 ;;
         esac
     done
+    
+    # Load site metadata to get platform
+    load_site_metadata "$site_code" || exit 1
+    local platform="$PLATFORM"
     
     local full_cluster_name="${site_code}-${cluster_name}"
     local total_nodes=$((control_planes + workers))
@@ -443,6 +444,9 @@ main() {
     echo ""
     
     validate_site_code "$site_code"
+    
+    # Note: load_site_metadata is already called above to get platform
+    
     validate_cluster_name "$cluster_name"
     
     # Check if cluster already exists
@@ -484,7 +488,7 @@ main() {
     log "  3. Deploy infrastructure and cluster:"
     log "     ${GREEN}export OMNI_ENDPOINT=https://omni.siderolabs.com${NC}"
     log "     ${GREEN}export OMNI_API_KEY=<your-key>${NC}"
-    log "     ${GREEN}./scripts/deploy-infrastructure.sh ${site_code} ${platform} $yaml_file${NC}"
+    log "     ${GREEN}./scripts/deploy-infrastructure.sh ${site_code} $yaml_file${NC}"
     echo ""
 }
 

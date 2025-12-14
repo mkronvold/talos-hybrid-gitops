@@ -60,10 +60,13 @@ This directory contains automation scripts for managing the Talos Hybrid GitOps 
 - `--folder` - VM folder path
 
 **Generated Files:**
-- `terraform/vsphere/terraform.tfvars.<site-code>`
-- `terraform/proxmox/terraform.tfvars.<site-code>`
-- `terraform/jumphost/terraform.tfvars.<site-code>`
+- `clusters/omni/<site-code>/.site-metadata` (platform tracking - committed to repo)
+- `terraform/<platform>/terraform.tfvars.<site-code>` (platform-specific)
+- `terraform/jumphost/terraform.tfvars.<site-code>` (vSphere only)
 - `clusters/omni/<site-code>/README.md`
+
+**Platform Tracking:**
+The site's platform (vsphere/proxmox) is stored in `.site-metadata` and used by all scripts to automatically select the correct platform. This eliminates the need to specify platform in deployment commands.
 
 ---
 
@@ -118,7 +121,8 @@ This directory contains automation scripts for managing the Talos Hybrid GitOps 
 - `--disk <gb>` - Disk size in GB (default: 100)
 - `--k8s-version <ver>` - Kubernetes version (default: v1.29.0)
 - `--talos-version <ver>` - Talos version (default: v1.9.5)
-- `--platform <name>` - Platform label (default: vsphere)
+
+**Note:** Platform is automatically detected from site configuration.
 
 **Generated Files:**
 - `clusters/omni/<site-code>/<cluster-name>.yaml`
@@ -344,20 +348,21 @@ omnictl version
 **Usage:**
 
 ```bash
-# Deploy NY Zone 1 Dev cluster on vSphere
-./scripts/deploy-infrastructure.sh ny1d vsphere clusters/omni/ny1d-cluster.yaml
+# Deploy NY Zone 1 Dev cluster (platform auto-detected)
+./scripts/deploy-infrastructure.sh ny1d clusters/omni/ny1d/web.yaml
 
-# Deploy SF Zone 2 Prod cluster on Proxmox
-./scripts/deploy-infrastructure.sh sf2p proxmox clusters/omni/sf2p-cluster.yaml
+# Deploy SF Zone 2 Prod cluster (platform auto-detected)
+./scripts/deploy-infrastructure.sh sf2p clusters/omni/sf2p/data.yaml
 
 # Deploy infrastructure only (configure cluster later)
-./scripts/deploy-infrastructure.sh la1s vsphere
+./scripts/deploy-infrastructure.sh la1s
 ```
 
 **Arguments:**
 - `$1` - Site code: e.g., `ny1d`, `sf2p`, `la1s`
-- `$2` - Platform: `vsphere` or `proxmox`
-- `$3` - (Optional) Path to Omni cluster YAML configuration file
+- `$2` - (Optional) Path to Omni cluster YAML configuration file
+
+**Note:** Platform is automatically detected from site configuration.
 
 **Prerequisites:**
 - Site-specific Terraform variables configured (`terraform.tfvars.<site-code>`)
@@ -433,8 +438,8 @@ kubectl get nodes
 export OMNI_ENDPOINT=https://omni.siderolabs.com
 export OMNI_API_KEY=<your-key>
 
-# Deploy
-./scripts/deploy-infrastructure.sh ny1d vsphere clusters/omni/ny1d/web.yaml
+# Deploy (platform auto-detected from site)
+./scripts/deploy-infrastructure.sh ny1d clusters/omni/ny1d/web.yaml
 ```
 
 ### Option B: Local Installation
@@ -518,4 +523,4 @@ source ~/.bashrc  # or source ~/.zshrc
 
 ---
 
-**Last Updated:** 2025-12-14T01:41:29.156Z
+**Last Updated:** 2025-12-14T02:54:18.372Z
