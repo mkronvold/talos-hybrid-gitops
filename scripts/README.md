@@ -205,38 +205,44 @@ omnictl version
 
 ### deploy-infrastructure.sh
 
-**Purpose:** Automated end-to-end deployment of infrastructure and Talos clusters using the hybrid approach.
+**Purpose:** Automated end-to-end deployment of site-specific infrastructure and Talos clusters using the hybrid approach.
 
 **What it does:**
-1. Validates prerequisites (Terraform, omnictl, kubectl)
-2. Provisions VMs using Terraform (vSphere or Proxmox)
+1. Validates site code format and prerequisites
+2. Provisions VMs using Terraform with workspace isolation per site
 3. Waits for machines to register with Omni
-4. Applies Omni cluster configuration
-5. Retrieves and saves kubeconfig
+4. Applies site-specific Omni cluster configuration
+5. Retrieves and saves kubeconfig as `kubeconfig-<site-code>`
 
 **Features:**
+- Multi-site support with workspace isolation
+- Site code validation (2-letter city + zone + environment)
 - Supports both vSphere and Proxmox platforms
 - Automatic prerequisite checking
 - Color-coded progress output
-- Error handling and rollback capability
-- Saves kubeconfig to project root
+- Error handling and recovery
+- Per-site kubeconfig files
 
 **Usage:**
 
 ```bash
-# Deploy vSphere cluster
-./scripts/deploy-infrastructure.sh vsphere clusters/omni/prod-vsphere.yaml
+# Deploy NY Zone 1 Dev cluster on vSphere
+./scripts/deploy-infrastructure.sh ny1d vsphere clusters/omni/ny1d-cluster.yaml
 
-# Deploy Proxmox cluster
-./scripts/deploy-infrastructure.sh proxmox clusters/omni/dev-proxmox.yaml
+# Deploy SF Zone 2 Prod cluster on Proxmox
+./scripts/deploy-infrastructure.sh sf2p proxmox clusters/omni/sf2p-cluster.yaml
+
+# Deploy infrastructure only (configure cluster later)
+./scripts/deploy-infrastructure.sh la1s vsphere
 ```
 
 **Arguments:**
-- `$1` - Platform: `vsphere` or `proxmox`
-- `$2` - Path to Omni cluster YAML configuration file
+- `$1` - Site code: e.g., `ny1d`, `sf2p`, `la1s`
+- `$2` - Platform: `vsphere` or `proxmox`
+- `$3` - (Optional) Path to Omni cluster YAML configuration file
 
 **Prerequisites:**
-- Terraform variables configured (`terraform.tfvars`)
+- Site-specific Terraform variables configured (`terraform.tfvars.<site-code>`)
 - Omni credentials set:
   ```bash
   export OMNI_ENDPOINT=https://omni.siderolabs.com
@@ -244,27 +250,37 @@ omnictl version
   ```
 - Tools installed (terraform, omnictl, kubectl)
 
+**Configuration Files:**
+- Terraform: `terraform/<platform>/terraform.tfvars.<site-code>`
+- Cluster: `clusters/omni/<site-code>-cluster.yaml`
+
 **Example Workflow:**
 
 ```bash
-# 1. Install dependencies
+# 1. Install dependencies (or use jumphost)
 ./scripts/install-dependencies.sh
 
-# 2. Configure Terraform
+# 2. Configure Terraform for site
 cd terraform/vsphere
-cp terraform.tfvars.example terraform.tfvars
-# Edit terraform.tfvars with your settings
+cp terraform.tfvars.example terraform.tfvars.ny1d
+# Edit terraform.tfvars.ny1d with NY zone 1 dev settings
 cd ../..
 
-# 3. Set Omni credentials
+# 3. Create cluster configuration
+mkdir -p clusters/omni
+cat > clusters/omni/ny1d-cluster.yaml <<EOF
+# Your Omni cluster configuration for NY Zone 1 Dev
+EOF
+
+# 4. Set Omni credentials
 export OMNI_ENDPOINT=https://omni.siderolabs.com
 export OMNI_API_KEY=your-api-key-here
 
-# 4. Deploy cluster
-./scripts/deploy-infrastructure.sh vsphere clusters/omni/prod-vsphere.yaml
+# 5. Deploy site infrastructure and cluster
+./scripts/deploy-infrastructure.sh ny1d vsphere clusters/omni/ny1d-cluster.yaml
 
-# 5. Verify cluster
-export KUBECONFIG=./kubeconfig
+# 6. Verify cluster
+export KUBECONFIG=./kubeconfig-ny1d
 kubectl get nodes
 ```
 
@@ -368,4 +384,4 @@ source ~/.bashrc  # or source ~/.zshrc
 
 ---
 
-**Last Updated:** 2025-12-14T01:29:05.443Z
+**Last Updated:** 2025-12-14T01:37:12.921Z
