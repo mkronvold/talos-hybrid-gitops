@@ -13,6 +13,124 @@ This directory contains automation scripts for managing the Talos Hybrid GitOps 
 
 ---
 
+## Site and Cluster Management Scripts
+
+### new-site.sh
+
+**Purpose:** Creates a new site with all necessary scaffolding and configuration files.
+
+**What it does:**
+1. Validates site code format
+2. Creates site directory structure
+3. Generates Terraform configurations for all platforms
+4. Creates site-specific documentation
+5. Sets up templates for clusters
+
+**Features:**
+- Site code validation and environment detection
+- Configurable vSphere/Proxmox settings
+- Generates configs for vsphere, proxmox, and jumphost
+- Creates site README with quickstart guide
+
+**Usage:**
+
+```bash
+# Create site with minimal options
+./scripts/new-site.sh ny1d vsphere --location "New York Zone 1"
+
+# Create site with full vSphere configuration
+./scripts/new-site.sh sf2p vsphere \
+  --location "San Francisco Zone 2" \
+  --datacenter "SF-DC" \
+  --cluster "SF-Cluster-2" \
+  --vcenter "vcenter-sf.example.com"
+```
+
+**Arguments:**
+- `site-code` - Site identifier (e.g., ny1d, sf2p)
+- `platform` - vsphere or proxmox
+
+**Options:**
+- `--location` - Full location name
+- `--datacenter` - vSphere datacenter name
+- `--cluster` - vSphere cluster name
+- `--datastore` - vSphere datastore name
+- `--network` - Network name
+- `--vcenter` - vCenter server address
+- `--folder` - VM folder path
+
+**Generated Files:**
+- `terraform/vsphere/terraform.tfvars.<site-code>`
+- `terraform/proxmox/terraform.tfvars.<site-code>`
+- `terraform/jumphost/terraform.tfvars.<site-code>`
+- `clusters/omni/<site-code>/README.md`
+
+---
+
+### new-cluster.sh
+
+**Purpose:** Creates an Omni cluster configuration for a specific site.
+
+**What it does:**
+1. Validates site code and cluster name
+2. Creates Omni cluster YAML with specified topology
+3. Configures control plane and worker machine sets
+4. Calculates total resource requirements
+5. Updates site README with cluster information
+
+**Features:**
+- Flexible cluster sizing (control planes + workers)
+- Configurable per-node resources (CPU, memory, disk)
+- Kubernetes and Talos version selection
+- Automatic resource calculation
+- Site and platform labeling for machine allocation
+
+**Usage:**
+
+```bash
+# Create basic cluster with defaults (3 CP + 3 workers)
+./scripts/new-cluster.sh ny1d web
+
+# Create cluster with custom sizing
+./scripts/new-cluster.sh sf2p data \
+  --control-planes 5 \
+  --workers 10 \
+  --cpu 8 \
+  --memory 16384
+
+# Create small dev cluster
+./scripts/new-cluster.sh la1s dev \
+  --control-planes 1 \
+  --workers 2 \
+  --cpu 2 \
+  --memory 4096
+```
+
+**Arguments:**
+- `site-code` - Site identifier (e.g., ny1d)
+- `cluster-name` - Cluster name (e.g., web, data, ml)
+
+**Options:**
+- `--control-planes <n>` - Number of control plane nodes (default: 3)
+- `--workers <n>` - Number of worker nodes (default: 3)
+- `--cpu <n>` - CPU cores per node (default: 4)
+- `--memory <mb>` - Memory in MB per node (default: 8192)
+- `--disk <gb>` - Disk size in GB (default: 100)
+- `--k8s-version <ver>` - Kubernetes version (default: v1.29.0)
+- `--talos-version <ver>` - Talos version (default: v1.9.5)
+- `--platform <name>` - Platform label (default: vsphere)
+
+**Generated Files:**
+- `clusters/omni/<site-code>/<cluster-name>.yaml`
+
+**Cluster Naming:**
+Full cluster name: `<site-code>-<cluster-name>`
+- Example: `ny1d-web`, `sf2p-data`
+
+**Important:** After creating a cluster, update the Terraform config with the calculated node count and resources.
+
+---
+
 ## Installation Scripts
 
 ### install-dependencies.sh
@@ -288,20 +406,36 @@ kubectl get nodes
 
 ## Script Execution Order
 
-### Option A: Using a Jumphost (Recommended for Multi-Site)
+### Complete Multi-Site Workflow
 
-1. **deploy-jumphost.sh \<site-code\>** - Deploy site-specific Ubuntu management VM
-   ```bash
-   ./scripts/deploy-jumphost.sh ny1d  # New York Zone 1 Dev
-   ./scripts/deploy-jumphost.sh sf2p  # San Francisco Zone 2 Prod
-   ```
+#### 1. Create a New Site
+```bash
+./scripts/new-site.sh ny1d vsphere --location "New York Zone 1"
+```
 
-2. SSH to jumphost and run **deploy-infrastructure.sh** - Deploy your infrastructure and clusters
-   ```bash
-   ssh ubuntu@<jumphost-ip>
-   cd ~/talos-hybrid-gitops
-   ./scripts/deploy-infrastructure.sh vsphere clusters/omni/ny1d-cluster.yaml
-   ```
+#### 2. Create Cluster(s) for the Site
+```bash
+# Create web cluster
+./scripts/new-cluster.sh ny1d web --control-planes 3 --workers 5
+
+# Create data cluster
+./scripts/new-cluster.sh ny1d data --control-planes 5 --workers 10 --cpu 8 --memory 16384
+```
+
+#### 3. Deploy Jumphost (Optional but Recommended)
+```bash
+./scripts/deploy-jumphost.sh ny1d
+```
+
+#### 4. Deploy Infrastructure and Clusters
+```bash
+# Set Omni credentials
+export OMNI_ENDPOINT=https://omni.siderolabs.com
+export OMNI_API_KEY=<your-key>
+
+# Deploy
+./scripts/deploy-infrastructure.sh ny1d vsphere clusters/omni/ny1d/web.yaml
+```
 
 ### Option B: Local Installation
 
@@ -384,4 +518,4 @@ source ~/.bashrc  # or source ~/.zshrc
 
 ---
 
-**Last Updated:** 2025-12-14T01:37:12.921Z
+**Last Updated:** 2025-12-14T01:41:29.156Z
