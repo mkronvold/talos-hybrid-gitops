@@ -39,4 +39,4 @@ Thumbs.db
 *.swp
 *.swo
 *~
-jumphost-info.txt
+jumphost-*.txt

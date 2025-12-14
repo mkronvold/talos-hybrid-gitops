@@ -4,7 +4,6 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-TERRAFORM_DIR="$PROJECT_ROOT/terraform/jumphost"
 
 # Colors for output
 RED='\033[0;31m'
@@ -29,6 +28,70 @@ info() {
     echo -e "${BLUE}[INFO]${NC} $*"
 }
 
+# Usage information
+usage() {
+    cat << EOF
+${GREEN}Usage:${NC} $0 <site-code>
+
+${YELLOW}Deploy a jumphost VM for a specific site.${NC}
+
+${GREEN}Site Code Format:${NC}
+  <city><zone><env>
+  
+  Examples:
+    ny1d  - New York, Zone 1, Dev
+    sf2p  - San Francisco, Zone 2, Prod
+    la1s  - Los Angeles, Zone 1, Staging
+    ch3p  - Chicago, Zone 3, Prod
+
+${GREEN}Components:${NC}
+  <city>  - 2-letter city/location code (e.g., ny, sf, la, ch)
+  <zone>  - Single digit zone number (1-9)
+  <env>   - Environment: d (dev), s (staging), p (prod)
+
+${GREEN}Examples:${NC}
+  $0 ny1d    # Deploy dev jumphost in NY zone 1
+  $0 sf2p    # Deploy prod jumphost in SF zone 2
+
+${GREEN}Configuration:${NC}
+  Config file: terraform/jumphost/terraform.tfvars.<site-code>
+  
+  Create from template:
+    cd terraform/jumphost
+    cp terraform.tfvars.example terraform.tfvars.ny1d
+    # Edit with site-specific settings
+
+${GREEN}What gets deployed:${NC}
+  VM name: jumphost-<site-code> (e.g., jumphost-ny1d)
+  Workspace: <site-code> (Terraform workspace isolation)
+  Tools: Terraform, kubectl, Flux, omnictl, talosctl, Node.js, Copilot CLI
+
+EOF
+    exit 1
+}
+
+# Validate site code format
+validate_site_code() {
+    local site_code=$1
+    
+    # Check length (should be 4 characters: 2 letters + 1 digit + 1 letter)
+    if [ ${#site_code} -ne 4 ]; then
+        error "Invalid site code format: $site_code"
+        error "Expected format: <city><zone><env> (e.g., ny1d, sf2p)"
+        usage
+    fi
+    
+    # Check format: 2 letters + 1 digit + 1 letter (d/s/p)
+    if ! [[ $site_code =~ ^[a-z]{2}[0-9][dsp]$ ]]; then
+        error "Invalid site code format: $site_code"
+        error "Expected: 2 lowercase letters + 1 digit + environment (d/s/p)"
+        error "Examples: ny1d, sf2p, la1s"
+        usage
+    fi
+    
+    log "✓ Site code validated: $site_code"
+}
+
 # Check prerequisites
 check_prerequisites() {
     log "Checking prerequisites..."
@@ -48,56 +111,76 @@ check_prerequisites() {
     log "✓ All prerequisites met"
 }
 
-# Check if terraform.tfvars exists
+# Check if site-specific terraform.tfvars exists
 check_config() {
-    log "Checking configuration..."
+    local site_code=$1
+    local config_file="$TERRAFORM_DIR/terraform.tfvars.$site_code"
     
-    if [ ! -f "$TERRAFORM_DIR/terraform.tfvars" ]; then
-        error "Configuration file not found: $TERRAFORM_DIR/terraform.tfvars"
+    log "Checking configuration for site: $site_code"
+    
+    if [ ! -f "$config_file" ]; then
+        error "Configuration file not found: $config_file"
         info "Create it from the example:"
         info "  cd $TERRAFORM_DIR"
-        info "  cp terraform.tfvars.example terraform.tfvars"
-        info "  # Edit with your settings"
+        info "  cp terraform.tfvars.example terraform.tfvars.$site_code"
+        info "  # Edit with site-specific settings"
+        info ""
+        info "Make sure to set:"
+        info "  - jumphost_hostname = \"jumphost-$site_code\""
+        info "  - Site-specific vSphere/network settings"
         exit 1
     fi
     
-    log "✓ Configuration file found"
+    log "✓ Configuration file found: terraform.tfvars.$site_code"
 }
 
-# Initialize Terraform
+# Initialize Terraform with workspace
 init_terraform() {
+    local site_code=$1
+    
     log "Initializing Terraform..."
     
     cd "$TERRAFORM_DIR"
     terraform init -upgrade
     
-    log "✓ Terraform initialized"
+    # Create or select workspace for site isolation
+    log "Setting up Terraform workspace: $site_code"
+    terraform workspace select "$site_code" 2>/dev/null || terraform workspace new "$site_code"
+    
+    log "✓ Terraform initialized (workspace: $site_code)"
 }
 
 # Plan Terraform changes
 plan_terraform() {
-    log "Planning Terraform changes..."
+    local site_code=$1
+    local var_file="terraform.tfvars.$site_code"
+    
+    log "Planning Terraform changes for $site_code..."
     
     cd "$TERRAFORM_DIR"
-    terraform plan -out=tfplan
+    terraform plan -var-file="$var_file" -out="tfplan-$site_code"
     
     log "✓ Terraform plan complete"
 }
 
 # Apply Terraform changes
 apply_terraform() {
-    log "Deploying jumphost VM..."
+    local site_code=$1
+    
+    log "Deploying jumphost VM for $site_code..."
     
     cd "$TERRAFORM_DIR"
-    terraform apply tfplan
-    rm -f tfplan
+    terraform apply "tfplan-$site_code"
+    rm -f "tfplan-$site_code"
     
     log "✓ Jumphost VM deployed"
 }
 
 # Get jumphost information
 get_jumphost_info() {
-    log "Retrieving jumphost information..."
+    local site_code=$1
+    
+    log "Retrieving jumphost information for $site_code..."
     
     cd "$TERRAFORM_DIR"
     
@@ -110,6 +193,7 @@ get_jumphost_info() {
     echo -e "${GREEN}║           Jumphost Deployment Complete!                   ║${NC}"
     echo -e "${GREEN}╚════════════════════════════════════════════════════════════╝${NC}"
     echo ""
+    echo -e "${BLUE}Site Code:${NC}     $site_code"
     echo -e "${BLUE}Jumphost Name:${NC} $jumphost_name"
     echo -e "${BLUE}Jumphost IP:${NC}   $jumphost_ip"
     echo ""
@@ -138,7 +222,8 @@ get_jumphost_info() {
 
 # Save connection info to file
 save_connection_info() {
-    local info_file="$PROJECT_ROOT/jumphost-info.txt"
+    local site_code=$1
+    local info_file="$PROJECT_ROOT/jumphost-$site_code.txt"
     
     cd "$TERRAFORM_DIR"
     
@@ -146,7 +231,9 @@ save_connection_info() {
 Talos Hybrid GitOps - Jumphost Information
 ==========================================
 
-Deployed: $(date)
+Site Code:     $site_code
+Deployed:      $(date)
+Workspace:     $site_code
 
 Jumphost Name: $(terraform output -raw jumphost_name 2>/dev/null || echo "N/A")
 Jumphost IP:   $(terraform output -raw jumphost_ip 2>/dev/null || echo "N/A")
@@ -187,15 +274,30 @@ EOF
 
 # Main function
 main() {
+    # Check for site code argument
+    if [ $# -eq 0 ]; then
+        error "Missing required argument: site-code"
+        echo ""
+        usage
+    fi
+    
+    local site_code=$1
+    
+    # Convert to lowercase
+    site_code=$(echo "$site_code" | tr '[:upper:]' '[:lower:]')
+    
     echo -e "${GREEN}╔════════════════════════════════════════════════════════════╗${NC}"
     echo -e "${GREEN}║      Talos Hybrid GitOps - Jumphost Deployment            ║${NC}"
     echo -e "${GREEN}╚════════════════════════════════════════════════════════════╝${NC}"
     echo ""
+    echo -e "${BLUE}Target Site:${NC} $site_code"
+    echo ""
     
+    validate_site_code "$site_code"
     check_prerequisites
-    check_config
-    init_terraform
-    plan_terraform
+    check_config "$site_code"
+    init_terraform "$site_code"
+    plan_terraform "$site_code"
     
     echo ""
     warn "Review the plan above carefully."
@@ -204,14 +306,14 @@ main() {
     
     if [[ ! $REPLY =~ ^[Yy](es)?$ ]]; then
         warn "Deployment cancelled"
-        cd "$TERRAFORM_DIR"
-        rm -f tfplan
+        cd "$PROJECT_ROOT/terraform/jumphost"
+        rm -f "tfplan-$site_code"
         exit 0
     fi
     
-    apply_terraform
-    get_jumphost_info
-    save_connection_info
+    apply_terraform "$site_code"
+    get_jumphost_info "$site_code"
+    save_connection_info "$site_code"
     
     echo -e "${GREEN}✓ Deployment complete!${NC}"
 }

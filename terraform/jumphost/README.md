@@ -47,15 +47,39 @@ ssh-keygen -t rsa -b 4096 -C "your_email@example.com"
 cat ~/.ssh/id_rsa.pub
 ```
 
-## Configuration
+## Multi-Site Architecture
 
-### 1. Create terraform.tfvars
+This configuration supports deploying multiple jumphosts across different sites using Terraform workspaces for state isolation.
 
-```bash
-cp terraform.tfvars.example terraform.tfvars
+### Site Code Format
+
+```
+<city><zone><env>
+
+Examples:
+  ny1d - New York, Zone 1, Dev
+  sf2p - San Francisco, Zone 2, Prod
+  la1s - Los Angeles, Zone 1, Staging
+
+Components:
+  <city> - 2-letter city/location code
+  <zone> - Single digit zone number (1-9)
+  <env>  - d (dev), s (staging), p (prod)
 ```
 
-### 2. Edit terraform.tfvars
+## Configuration
+
+### 1. Create site-specific terraform.tfvars
+
+```bash
+# For New York Zone 1 Dev
+cp terraform.tfvars.example terraform.tfvars.ny1d
+
+# For San Francisco Zone 2 Prod
+cp terraform.tfvars.example terraform.tfvars.sf2p
+```
+
+### 2. Edit terraform.tfvars.\<site-code\>
 
 ```hcl
 # vSphere Connection
@@ -76,7 +100,7 @@ vsphere_folder        = "Management"
 ubuntu_template = "ubuntu-22.04-cloud"
 
 # Jumphost Configuration
-jumphost_hostname = "talos-jumphost"
+jumphost_hostname = "jumphost-ny1d"  # Use site code in hostname
 jumphost_cpu      = 2
 jumphost_memory   = 4096  # MB
 jumphost_disk_size = 50   # GB
@@ -97,10 +121,15 @@ jumphost_timezone = "America/New_York"
 
 ```bash
 cd ~/talos-hybrid-gitops
-./scripts/deploy-jumphost.sh
+
+# Deploy New York Zone 1 Dev jumphost
+./scripts/deploy-jumphost.sh ny1d
+
+# Deploy San Francisco Zone 2 Prod jumphost
+./scripts/deploy-jumphost.sh sf2p
 ```
 
-### Manual deployment:
+### Manual deployment with workspaces:
 
 ```bash
 cd terraform/jumphost
@@ -108,11 +137,29 @@ cd terraform/jumphost
 # Initialize Terraform
 terraform init
 
+# Create/select workspace for site
+terraform workspace new ny1d
+# or
+terraform workspace select ny1d
+
 # Plan deployment
-terraform plan
+terraform plan -var-file="terraform.tfvars.ny1d"
 
 # Apply configuration
-terraform apply
+terraform apply -var-file="terraform.tfvars.ny1d"
+```
+
+### List and manage workspaces:
+
+```bash
+# List all workspaces (one per site)
+terraform workspace list
+
+# Switch between sites
+terraform workspace select sf2p
+
+# Show current workspace
+terraform workspace show
 ```
 
 ## Post-Deployment

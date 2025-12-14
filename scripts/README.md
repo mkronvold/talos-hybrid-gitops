@@ -102,38 +102,65 @@ github-copilot-cli auth
 
 ### deploy-jumphost.sh
 
-**Purpose:** Deploys an Ubuntu management jumphost VM with all tools pre-installed.
+**Purpose:** Deploys site-specific Ubuntu management jumphost VMs with all tools pre-installed.
 
 **What it does:**
-1. Validates prerequisites (Terraform)
-2. Checks for terraform.tfvars configuration
-3. Initializes and plans Terraform deployment
-4. Deploys Ubuntu VM to vSphere
-5. Cloud-init automatically installs:
+1. Validates site code format (e.g., ny1d, sf2p)
+2. Validates prerequisites (Terraform)
+3. Checks for site-specific configuration
+4. Creates/uses Terraform workspace for site isolation
+5. Deploys Ubuntu VM to vSphere
+6. Cloud-init automatically installs:
    - Talos Hybrid GitOps repository
    - All CLI tools (Terraform, kubectl, Flux, omnictl, talosctl)
    - Node.js, npm, and GitHub Copilot CLI
    - Essential development tools
 
 **Features:**
+- Multi-site support with workspace isolation
+- Site code validation (2-letter city + zone + environment)
 - Automated VM provisioning with cloud-init
 - Pre-configured with all necessary tools
 - SSH key authentication
-- Customizable VM specifications
-- Saves connection information to `jumphost-info.txt`
+- Customizable VM specifications per site
+- Saves connection information to `jumphost-<site-code>.txt`
+
+**Site Code Format:**
+```
+<city><zone><env>
+
+Examples:
+  ny1d - New York, Zone 1, Dev
+  sf2p - San Francisco, Zone 2, Prod
+  la1s - Los Angeles, Zone 1, Staging
+  ch3p - Chicago, Zone 3, Prod
+
+Components:
+  <city> - 2-letter city/location code
+  <zone> - Single digit zone number (1-9)
+  <env>  - Environment: d (dev), s (staging), p (prod)
+```
 
 **Usage:**
 
 ```bash
-# 1. Configure terraform.tfvars
+# 1. Create site-specific configuration
 cd terraform/jumphost
-cp terraform.tfvars.example terraform.tfvars
-# Edit with your vSphere settings and SSH keys
+cp terraform.tfvars.example terraform.tfvars.ny1d
+# Edit with site-specific settings (hostname: jumphost-ny1d)
 
-# 2. Deploy jumphost
+# 2. Deploy jumphost for New York Zone 1 Dev
 cd ../..
-./scripts/deploy-jumphost.sh
+./scripts/deploy-jumphost.sh ny1d
+
+# 3. Deploy jumphost for San Francisco Zone 2 Prod
+./scripts/deploy-jumphost.sh sf2p
 ```
+
+**Configuration Files:**
+- Each site requires: `terraform/jumphost/terraform.tfvars.<site-code>`
+- Example: `terraform.tfvars.ny1d`, `terraform.tfvars.sf2p`
+- Terraform workspaces provide state isolation per site
 
 **Prerequisites:**
 - Terraform installed locally
@@ -245,10 +272,20 @@ kubectl get nodes
 
 ## Script Execution Order
 
-### Option A: Using a Jumphost (Recommended)
+### Option A: Using a Jumphost (Recommended for Multi-Site)
 
-1. **deploy-jumphost.sh** - Deploy Ubuntu management VM (includes all tools automatically)
+1. **deploy-jumphost.sh \<site-code\>** - Deploy site-specific Ubuntu management VM
+   ```bash
+   ./scripts/deploy-jumphost.sh ny1d  # New York Zone 1 Dev
+   ./scripts/deploy-jumphost.sh sf2p  # San Francisco Zone 2 Prod
+   ```
+
 2. SSH to jumphost and run **deploy-infrastructure.sh** - Deploy your infrastructure and clusters
+   ```bash
+   ssh ubuntu@<jumphost-ip>
+   cd ~/talos-hybrid-gitops
+   ./scripts/deploy-infrastructure.sh vsphere clusters/omni/ny1d-cluster.yaml
+   ```
 
 ### Option B: Local Installation
 
@@ -331,4 +368,4 @@ source ~/.bashrc  # or source ~/.zshrc
 
 ---
 
-**Last Updated:** 2025-12-14T01:24:35.845Z
+**Last Updated:** 2025-12-14T01:29:05.443Z
