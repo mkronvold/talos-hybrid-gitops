@@ -61,12 +61,14 @@ resource "proxmox_virtual_environment_vm" "jumphost" {
     model  = "virtio"
   }
   
-  # Cloud-init drive with inline user data (no snippets storage required)
+  # Cloud-init configuration (basic user setup only)
   initialization {
     datastore_id = var.proxmox_datastore
     
-    user_data_content_type = "text/cloud-config"
-    user_data              = local.cloud_init_user_data
+    user_account {
+      username = var.jumphost_username
+      keys     = var.jumphost_ssh_keys
+    }
     
     ip_config {
       ipv4 {
