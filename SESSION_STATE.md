@@ -359,7 +359,7 @@ flux bootstrap github \
 - terraform/jumphost-vsphere/ (vSphere jumphost with cloud-init)
 - terraform/jumphost-proxmox/ (Proxmox jumphost with cloud-init)
 
-**Major Accomplishments**:
+**Major Accomplishments (Session 3)**:
 1. ✅ Added complete Proxmox deployment workflow to WORKFLOW.md
 2. ✅ Added Day 2 operations examples for both platforms
 3. ✅ Added cross-platform environment promotion workflow
@@ -368,16 +368,47 @@ flux bootstrap github \
 6. ✅ Added hybrid approach example using both platforms
 7. ✅ Restructured workflow document for clarity
 
+### Session 4: Simplified Tool Installation
+**Date**: 2025-12-16 (19:45 - 19:58 UTC)  
+**Duration**: ~13 minutes  
+**Commits**: 1 commit  
+**Status**: ✅ Completed  
+**Final Commit**: 1037be2 - Simplify tool installation using Homebrew sidero-tools
+
+**Major Accomplishments**:
+1. ✅ Updated install-dependencies.sh to use Homebrew sidero-tools package
+2. ✅ Single command now installs omnictl, talosctl, and kubectl
+3. ✅ Falls back to manual installation if Homebrew not available
+4. ✅ Updated all documentation (README, WORKFLOW, QUICKSTART, scripts/README)
+5. ✅ Aligned with official Omni documentation recommendations
+6. ✅ Added comprehensive troubleshooting section to QUICKSTART.md
+7. ✅ Simplified installation from 5+ commands to 2 commands
+
+**Before (5 commands):**
+```bash
+brew install terraform kubectl fluxcd/tap/flux
+curl -Lo omnictl https://github.com/siderolabs/omni/releases/latest/download/omnictl-darwin-amd64
+chmod +x omnictl && sudo mv omnictl /usr/local/bin/
+curl -Lo talosctl https://github.com/siderolabs/talos/releases/latest/download/talosctl-darwin-amd64
+chmod +x talosctl && sudo mv talosctl /usr/local/bin/
+```
+
+**After (2 commands):**
+```bash
+brew install siderolabs/tap/sidero-tools  # omnictl, talosctl, kubectl
+brew install terraform fluxcd/tap/flux
+```
+
 ## Git Status
 
 ```
 Repository: https://github.com/mkronvold/talos-hybrid-gitops
 Branch: main
-Last Commit: cc9be43 - Add Proxmox examples to WORKFLOW.md
-Total Commits: 16
+Last Commit: 1037be2 - Simplify tool installation using Homebrew sidero-tools
+Total Commits: 18
 Working Tree: Clean ✅
 Remote Status: Up to date with origin/main ✅
-Session End: 2025-12-14T23:38:00Z ✅
+Session End: 2025-12-16T19:58:00Z ✅
 ```
 
 ## Key Questions Answered This Session
