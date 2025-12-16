@@ -4,6 +4,8 @@ set -xe
 
 VMID="${VMID:-9000}"
 STORAGE="${STORAGE:-zfs}"
+IMAGESIZE="${IMAGESIZE:-8G}"
+GITHUBUSER="${GITHUBUSER:-$USER}"
 GITHUBUSER=mkronvold
 
 IMG="noble-server-cloudimg-amd64.img"
@@ -31,7 +33,7 @@ fi
 
 rm -f noble-server-cloudimg-amd64-resized.img
 cp noble-server-cloudimg-amd64.img noble-server-cloudimg-amd64-resized.img
-qemu-img resize noble-server-cloudimg-amd64-resized.img 32G
+qemu-img resize noble-server-cloudimg-amd64-resized.img ${IMAGESIZE}
 
 qm destroy $VMID || true
 qm create $VMID --name "ubuntu-noble-template" --ostype l26 \
