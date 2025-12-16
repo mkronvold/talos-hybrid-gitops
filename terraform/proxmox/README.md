@@ -78,11 +78,17 @@ node_disk_size = 100  # GB
 
 ### Initialize Terraform
 
+Initialize Terraform to download the required providers and create the dependency lock file:
+
 ```bash
 terraform init
 ```
 
+**Note**: If you encounter `Inconsistent dependency lock file` errors, run `terraform init` first to generate or update the `.terraform.lock.hcl` file.
+
 ### Plan Deployment
+
+Review the planned changes before applying:
 
 ```bash
 terraform plan
@@ -147,6 +153,17 @@ omnictl apply -f clusters/omni/<cluster>.yaml
 ```
 
 ## Troubleshooting
+
+### Dependency Lock File Errors
+
+**Error**: `Inconsistent dependency lock file` or `required by this configuration but no version is selected`
+
+**Solution**:
+```bash
+terraform init
+```
+
+This will download the required providers and generate/update the `.terraform.lock.hcl` file. The lock file ensures consistent provider versions across different environments.
 
 ### Authentication Errors
 

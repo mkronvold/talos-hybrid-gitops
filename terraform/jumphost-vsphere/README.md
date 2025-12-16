@@ -134,7 +134,7 @@ cd ~/talos-hybrid-gitops
 ```bash
 cd terraform/jumphost
 
-# Initialize Terraform
+# Initialize Terraform (downloads providers and creates lock file)
 terraform init
 
 # Create/select workspace for site
@@ -264,6 +264,17 @@ runcmd:
 ```
 
 ## Troubleshooting
+
+### Terraform dependency lock file errors
+
+**Error**: `Inconsistent dependency lock file` or `required by this configuration but no version is selected`
+
+**Solution**:
+```bash
+terraform init
+```
+
+This will download the required providers and generate/update the `.terraform.lock.hcl` file.
 
 ### VM doesn't get an IP address
 

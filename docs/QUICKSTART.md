@@ -64,7 +64,7 @@ cp terraform.tfvars.example terraform.tfvars.mysite
 ./scripts/new-site.sh mysite vsphere --location "My Site"
 
 # 3. Deploy infrastructure
-terraform init
+terraform init  # Download providers and create lock file
 terraform workspace select -or-create mysite
 terraform apply -var-file=terraform.tfvars.mysite
 
@@ -121,6 +121,8 @@ kubectl version --client
 - Verify network connectivity from VMs to Omni
 
 **Terraform errors?**
+- Run `terraform init` first to download providers and create lock file
+- If you see "Inconsistent dependency lock file" errors, run `terraform init` again
 - Verify credentials in terraform.tfvars
 - Ensure vSphere template or Proxmox ISO is available
 - Check resource limits (CPU, memory, storage)

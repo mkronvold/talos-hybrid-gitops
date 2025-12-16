@@ -48,7 +48,7 @@ This repository demonstrates a hybrid approach to managing Talos clusters using:
 ### 1. Provision Infrastructure (Terraform)
 ```bash
 cd terraform/vsphere
-terraform init
+terraform init  # Download providers and create lock file
 terraform plan
 terraform apply
 ```

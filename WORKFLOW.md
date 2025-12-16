@@ -265,8 +265,10 @@ EOF
 #### 3. Deploy Infrastructure (Terraform)
 
 ```bash
-# Initialize and plan
+# Initialize providers (downloads required providers and creates lock file)
 terraform init
+
+# Plan deployment
 terraform plan -out=tfplan
 
 # Review plan output - should show 4 VMs to be created
