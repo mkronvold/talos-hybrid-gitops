@@ -4,14 +4,23 @@ variable "proxmox_endpoint" {
 }
 
 variable "proxmox_username" {
-  description = "Proxmox username (e.g., root@pam)"
+  description = "Proxmox username (e.g., root@pam) - used with password auth"
   type        = string
+  default     = ""
   sensitive   = true
 }
 
 variable "proxmox_password" {
-  description = "Proxmox password or API token"
+  description = "Proxmox password - used with username/password auth"
   type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "proxmox_api_token" {
+  description = "Proxmox API token (recommended) - format: USER@REALM!TOKENID=UUID"
+  type        = string
+  default     = ""
   sensitive   = true
 }
 

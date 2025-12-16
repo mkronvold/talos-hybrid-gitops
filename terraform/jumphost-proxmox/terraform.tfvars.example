@@ -1,8 +1,14 @@
-# Proxmox Connection
-proxmox_api_url      = "https://proxmox.example.com:8006/api2/json"
-proxmox_api_user     = "root@pam"
-proxmox_api_password = "your-password"
-proxmox_tls_insecure = true
+# Proxmox endpoint
+proxmox_endpoint = "https://proxmox.example.com:8006"
+proxmox_insecure = true  # Set to false with valid SSL cert
+
+# Authentication - Use EITHER api_token (recommended) OR username/password
+# Option 1: API Token (recommended for automation)
+proxmox_api_token = "root@pam!terraform=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+
+# Option 2: Username/Password (comment out api_token above if using this)
+# proxmox_username = "root@pam"
+# proxmox_password = "your-password"
 
 # Proxmox Resources
 proxmox_node    = "pve"

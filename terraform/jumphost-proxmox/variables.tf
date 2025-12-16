@@ -1,22 +1,31 @@
-variable "proxmox_api_url" {
-  description = "Proxmox API URL"
+variable "proxmox_endpoint" {
+  description = "Proxmox API endpoint"
   type        = string
 }
 
-variable "proxmox_api_user" {
-  description = "Proxmox API user"
+variable "proxmox_username" {
+  description = "Proxmox username (e.g., root@pam) - used with password auth"
   type        = string
+  default     = ""
   sensitive   = true
 }
 
-variable "proxmox_api_password" {
-  description = "Proxmox API password"
+variable "proxmox_password" {
+  description = "Proxmox password - used with username/password auth"
   type        = string
+  default     = ""
   sensitive   = true
 }
 
-variable "proxmox_tls_insecure" {
-  description = "Allow insecure TLS connections"
+variable "proxmox_api_token" {
+  description = "Proxmox API token (recommended) - format: USER@REALM!TOKENID=UUID"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "proxmox_insecure" {
+  description = "Allow insecure SSL connections"
   type        = bool
   default     = true
 }

@@ -1,10 +1,16 @@
 # Copy this file to terraform.tfvars and fill in your values
 
-# Proxmox credentials
+# Proxmox endpoint
 proxmox_endpoint = "https://proxmox.example.com:8006"
-proxmox_username = "root@pam"
-proxmox_password = "your-password"
 proxmox_insecure = true  # Set to false with valid SSL cert
+
+# Authentication - Use EITHER api_token (recommended) OR username/password
+# Option 1: API Token (recommended for automation)
+proxmox_api_token = "root@pam!terraform=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+
+# Option 2: Username/Password (comment out api_token above if using this)
+# proxmox_username = "root@pam"
+# proxmox_password = "your-password"
 
 # Proxmox resources
 proxmox_node      = "pve"
