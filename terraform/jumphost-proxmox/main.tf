@@ -86,7 +86,7 @@ resource "proxmox_virtual_environment_vm" "jumphost" {
 # Cloud-init configuration file
 resource "proxmox_virtual_environment_file" "cloud_init_user_config" {
   content_type = "snippets"
-  datastore_id = var.proxmox_datastore
+  datastore_id = var.proxmox_snippets_datastore
   node_name    = var.proxmox_node
   
   source_raw {

@@ -40,6 +40,12 @@ variable "proxmox_datastore" {
   type        = string
 }
 
+variable "proxmox_snippets_datastore" {
+  description = "Proxmox datastore for cloud-init snippets (must support 'snippets' content type, typically 'local')"
+  type        = string
+  default     = "local"
+}
+
 variable "proxmox_bridge" {
   description = "Proxmox network bridge"
   type        = string
