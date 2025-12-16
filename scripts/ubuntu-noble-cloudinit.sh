@@ -2,7 +2,7 @@
 
 set -xe
 
-VMID="${VMID:-7999}"
+VMID="${VMID:-9000}"
 STORAGE="${STORAGE:-zfs}"
 GITHUBUSER=mkronvold
 
