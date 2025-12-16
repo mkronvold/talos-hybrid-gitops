@@ -106,3 +106,18 @@ output "ssh_command" {
   description = "SSH command to connect to jumphost"
   value       = "ssh ${var.jumphost_username}@${try(proxmox_virtual_environment_vm.jumphost.ipv4_addresses[1][0], "pending")}"
 }
+
+output "setup_instructions" {
+  description = "Post-deployment setup instructions"
+  value       = <<-EOT
+    Basic VM created. To complete jumphost setup, SSH in and run:
+    
+    ssh ${var.jumphost_username}@${try(proxmox_virtual_environment_vm.jumphost.ipv4_addresses[1][0], "pending")}
+    
+    Then run the setup scripts:
+    git clone https://github.com/mkronvold/talos-hybrid-gitops.git
+    cd talos-hybrid-gitops
+    ./scripts/install-dependencies.sh
+    ./scripts/install-node-copilot.sh
+  EOT
+}
