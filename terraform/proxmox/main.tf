@@ -15,6 +15,10 @@ provider "proxmox" {
   username  = var.proxmox_api_token == "" ? var.proxmox_username : null
   password  = var.proxmox_api_token == "" ? var.proxmox_password : null
   insecure  = var.proxmox_insecure
+  
+  ssh {
+    agent = true
+  }
 }
 
 # Download Talos ISO to Proxmox if needed
