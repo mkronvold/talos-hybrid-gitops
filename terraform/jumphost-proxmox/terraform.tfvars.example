@@ -18,6 +18,7 @@ proxmox_bridge  = "vmbr0"
 # Ubuntu Template
 # Create Ubuntu cloud image template in Proxmox first
 # See: https://pve.proxmox.com/wiki/Cloud-Init_Support
+# https://github.com/UntouchedWagons/Ubuntu-CloudInit-Docs
 ubuntu_template_id = 9000
 
 # Jumphost Configuration
