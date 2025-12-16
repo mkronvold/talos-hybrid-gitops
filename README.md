@@ -70,9 +70,43 @@ flux bootstrap github \
 
 ## Getting Started
 
-1. Set up credentials in `.env` or CI/CD secrets
-2. Provision VMs with Terraform
-3. Apply cluster configurations with Omni
-4. Bootstrap Flux for application deployment
+### Quick Install
 
-See individual directories for detailed documentation.
+**With Homebrew (macOS/Linux):**
+```bash
+# Install all Talos/Omni tools with one command
+brew install siderolabs/tap/sidero-tools  # Installs omnictl, talosctl, kubectl
+
+# Additional tools
+brew install terraform fluxcd/tap/flux
+```
+
+**Or use the automated script:**
+```bash
+./scripts/install-dependencies.sh
+```
+
+### Deployment Steps
+
+1. **Create a site:**
+   ```bash
+   ./scripts/new-site.sh <site-code> <platform> --location "<location>"
+   ```
+
+2. **Configure Terraform variables:**
+   ```bash
+   vim terraform/<platform>/terraform.tfvars.<site-code>
+   ```
+
+3. **Set Omni credentials:**
+   ```bash
+   export OMNI_ENDPOINT=https://omni.siderolabs.com
+   export OMNI_API_KEY=<your-api-key>
+   ```
+
+4. **Deploy infrastructure:**
+   ```bash
+   ./scripts/deploy-infrastructure.sh <site-code> clusters/omni/<site-code>/<cluster>.yaml
+   ```
+
+See [WORKFLOW.md](WORKFLOW.md) for complete examples and [scripts/README.md](scripts/README.md) for detailed script documentation.

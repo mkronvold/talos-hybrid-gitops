@@ -92,9 +92,11 @@ All changes committed and pushed
 git clone git@github.com:mkronvold/talos-hybrid-gitops.git
 cd talos-hybrid-gitops
 
-# 2. Install tools
-./scripts/install-dependencies.sh
-./scripts/install-node-copilot.sh
+# 2. Install tools (Homebrew recommended)
+brew install siderolabs/tap/sidero-tools  # omnictl, talosctl, kubectl
+brew install terraform fluxcd/tap/flux
+# OR: ./scripts/install-dependencies.sh
+./scripts/install-node-copilot.sh  # Optional: Node.js + Copilot CLI
 
 # 3. Create a new site (vSphere)
 ./scripts/new-site.sh ny1d vsphere --location "New York Zone 1"
@@ -236,7 +238,7 @@ flux bootstrap github \
 - ✅ **new-cluster.sh** - Generate Omni cluster YAML
 - ✅ **deploy-jumphost.sh** - Deploy management VM (platform auto-detected)
 - ✅ **deploy-infrastructure.sh** - Deploy VMs and clusters (platform auto-detected)
-- ✅ **install-dependencies.sh** - Install Terraform, kubectl, Flux, omnictl, talosctl
+- ✅ **install-dependencies.sh** - Install tools (uses Homebrew sidero-tools if available, otherwise manual install)
 - ✅ **install-node-copilot.sh** - Install NVM, Node.js, GitHub Copilot CLI
 
 ### Jumphost Features
@@ -343,7 +345,7 @@ flux bootstrap github \
 8. ✅ Updated all scripts to support multi-site workflow
 
 **Scripts Created**:
-- install-dependencies.sh (Terraform, kubectl, Flux, omnictl, talosctl)
+- install-dependencies.sh (Uses Homebrew sidero-tools or manual install)
 - install-node-copilot.sh (NVM, Node.js, GitHub Copilot CLI)
 - new-site.sh (Create sites with platform tracking)
 - modify-site.sh (Safely modify site metadata)

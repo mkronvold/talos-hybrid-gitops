@@ -6,27 +6,16 @@ set -euo pipefail
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Versions
 TERRAFORM_VERSION="1.6.0"
-KUBECTL_VERSION="stable"
-TALOSCTL_VERSION="v1.9.5"
-NVM_VERSION="v0.40.1"
-NODE_VERSION="lts"
 
 # Installation directory
 INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
 
 echo -e "${GREEN}=== Talos Hybrid GitOps - Dependency Installer ===${NC}\n"
-
-# Check if running as root for system-wide install
-if [[ "$INSTALL_DIR" == "/usr/local/bin" ]] && [[ $EUID -ne 0 ]]; then
-   echo -e "${YELLOW}Note: Installing to $INSTALL_DIR requires sudo privileges${NC}"
-   USE_SUDO="sudo"
-else
-   USE_SUDO=""
-fi
 
 # Detect OS and architecture
 OS=$(uname -s | tr '[:upper:]' '[:lower:]')
@@ -47,10 +36,75 @@ esac
 
 echo -e "Detected OS: ${GREEN}$OS${NC}, Architecture: ${GREEN}$ARCH${NC}\n"
 
+# Check if running as root for system-wide install
+if [[ "$INSTALL_DIR" == "/usr/local/bin" ]] && [[ $EUID -ne 0 ]]; then
+   echo -e "${YELLOW}Note: Installing to $INSTALL_DIR requires sudo privileges${NC}"
+   USE_SUDO="sudo"
+else
+   USE_SUDO=""
+fi
+
 # Function to check if command exists
 command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
+
+# Check for Homebrew (macOS/Linux)
+if command_exists brew; then
+    echo -e "${BLUE}=== Homebrew detected - Using simplified installation ===${NC}\n"
+    echo -e "${GREEN}Installing all Talos/Omni tools with one command...${NC}"
+    echo -e "${YELLOW}Running: brew install siderolabs/tap/sidero-tools${NC}\n"
+    
+    brew install siderolabs/tap/sidero-tools
+    
+    echo -e "\n${GREEN}✓ Sidero tools installed (includes omnictl, talosctl, kubectl)${NC}\n"
+    
+    # Check if Terraform is installed
+    if ! command_exists terraform; then
+        echo -e "${YELLOW}Installing Terraform...${NC}"
+        brew install terraform
+        echo -e "${GREEN}✓ Terraform installed${NC}\n"
+    else
+        echo -e "Terraform: ${GREEN}already installed${NC}\n"
+    fi
+    
+    # Check if Flux is installed
+    if ! command_exists flux; then
+        echo -e "${YELLOW}Installing Flux CD...${NC}"
+        brew install fluxcd/tap/flux
+        echo -e "${GREEN}✓ Flux installed${NC}\n"
+    else
+        echo -e "Flux: ${GREEN}already installed${NC}\n"
+    fi
+    
+    echo -e "${GREEN}=== Installation Complete ===${NC}\n"
+    
+    # Summary
+    echo -e "${GREEN}Installed tools:${NC}"
+    [[ -n "$(command -v terraform)" ]] && echo -e "  • Terraform: $(terraform version | head -n1)"
+    [[ -n "$(command -v kubectl)" ]] && echo -e "  • kubectl: $(kubectl version --client --short 2>/dev/null || kubectl version --client 2>&1 | head -n1)"
+    [[ -n "$(command -v flux)" ]] && echo -e "  • Flux: $(flux version --client 2>&1 | grep "flux:" || echo "installed")"
+    [[ -n "$(command -v omnictl)" ]] && echo -e "  • Omni CLI: $(omnictl version --short 2>/dev/null || omnictl version 2>&1 | head -n1)"
+    [[ -n "$(command -v talosctl)" ]] && echo -e "  • talosctl: $(talosctl version --short --client 2>&1 | head -n1)"
+    
+    echo ""
+    echo -e "${YELLOW}Next steps:${NC}"
+    echo -e "  1. Set Omni credentials:"
+    echo -e "     ${GREEN}export OMNI_ENDPOINT=https://omni.siderolabs.com${NC}"
+    echo -e "     ${GREEN}export OMNI_API_KEY=<your-api-key>${NC}"
+    echo ""
+    echo -e "  2. Configure site:"
+    echo -e "     ${GREEN}./scripts/new-site.sh <site-code> <platform> --location \"<location>\"${NC}"
+    echo ""
+    echo -e "  3. Deploy infrastructure:"
+    echo -e "     ${GREEN}./scripts/deploy-infrastructure.sh <site-code> clusters/omni/<site-code>/<cluster>.yaml${NC}"
+    echo ""
+    
+    exit 0
+fi
+
+# Fallback to manual installation for non-Homebrew systems
+echo -e "${BLUE}=== Manual installation mode (no Homebrew detected) ===${NC}\n"
 
 # Function to get installed version
 get_version() {
@@ -86,7 +140,7 @@ install_terraform() {
 install_kubectl() {
     echo -e "${YELLOW}Installing kubectl...${NC}"
     
-    local version=$(curl -L -s "https://dl.k8s.io/release/${KUBECTL_VERSION}.txt")
+    local version=$(curl -L -s "https://dl.k8s.io/release/stable.txt")
     
     curl -Lo kubectl "https://dl.k8s.io/release/${version}/bin/${OS}/${ARCH}/kubectl"
     $USE_SUDO mv kubectl "$INSTALL_DIR/"
@@ -117,9 +171,9 @@ install_omnictl() {
 
 # Install Talosctl
 install_talosctl() {
-    echo -e "${YELLOW}Installing talosctl $TALOSCTL_VERSION...${NC}"
+    echo -e "${YELLOW}Installing talosctl...${NC}"
     
-    curl -Lo talosctl "https://github.com/siderolabs/talos/releases/download/${TALOSCTL_VERSION}/talosctl-${OS}-${ARCH}"
+    curl -Lo talosctl "https://github.com/siderolabs/talos/releases/latest/download/talosctl-${OS}-${ARCH}"
     $USE_SUDO mv talosctl "$INSTALL_DIR/"
     $USE_SUDO chmod +x "$INSTALL_DIR/talosctl"
     
@@ -210,14 +264,13 @@ echo -e "  • talosctl: $(talosctl version --short --client 2>&1 | head -n1)"
 
 echo ""
 echo -e "${YELLOW}Next steps:${NC}"
-echo -e "  1. Configure Terraform variables:"
-echo -e "     ${GREEN}cd terraform/vsphere && cp terraform.tfvars.example terraform.tfvars${NC}"
-echo -e "     ${GREEN}cd terraform/proxmox && cp terraform.tfvars.example terraform.tfvars${NC}"
-echo ""
-echo -e "  2. Set Omni credentials:"
+echo -e "  1. Set Omni credentials:"
 echo -e "     ${GREEN}export OMNI_ENDPOINT=https://omni.siderolabs.com${NC}"
 echo -e "     ${GREEN}export OMNI_API_KEY=<your-api-key>${NC}"
 echo ""
+echo -e "  2. Configure site:"
+echo -e "     ${GREEN}./scripts/new-site.sh <site-code> <platform> --location \"<location>\"${NC}"
+echo ""
 echo -e "  3. Deploy infrastructure:"
-echo -e "     ${GREEN}./scripts/deploy-infrastructure.sh vsphere clusters/omni/prod-vsphere.yaml${NC}"
+echo -e "     ${GREEN}./scripts/deploy-infrastructure.sh <site-code> clusters/omni/<site-code>/<cluster>.yaml${NC}"
 echo ""

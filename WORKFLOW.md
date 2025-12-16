@@ -40,10 +40,12 @@ This document shows the complete workflow from empty infrastructure to running a
 git clone https://github.com/mkronvold/talos-hybrid-gitops.git
 cd talos-hybrid-gitops
 
-# Install tools
-brew install terraform kubectl fluxcd/tap/flux
-curl -Lo omnictl https://github.com/siderolabs/omni/releases/latest/download/omnictl-darwin-amd64
-chmod +x omnictl && sudo mv omnictl /usr/local/bin/
+# Install tools (macOS/Linux with Homebrew)
+brew install siderolabs/tap/sidero-tools  # Installs omnictl, talosctl, kubectl
+brew install terraform fluxcd/tap/flux
+
+# OR use the automated script
+./scripts/install-dependencies.sh
 
 # Get Omni API key
 # Visit https://omni.siderolabs.com → Settings → API Keys → Create
@@ -222,9 +224,11 @@ git clone https://github.com/mkronvold/talos-hybrid-gitops.git
 cd talos-hybrid-gitops
 
 # Install tools (same as vSphere)
-brew install terraform kubectl fluxcd/tap/flux
-curl -Lo omnictl https://github.com/siderolabs/omni/releases/latest/download/omnictl-darwin-amd64
-chmod +x omnictl && sudo mv omnictl /usr/local/bin/
+brew install siderolabs/tap/sidero-tools  # Installs omnictl, talosctl, kubectl
+brew install terraform fluxcd/tap/flux
+
+# OR use the automated script
+./scripts/install-dependencies.sh
 
 # Get Omni API key
 export OMNI_ENDPOINT=https://omni.siderolabs.com

@@ -208,32 +208,48 @@ Full cluster name: `<site-code>-<cluster-name>`
 **Purpose:** Installs all required CLI tools for managing Talos clusters and infrastructure.
 
 **Installs:**
-- Terraform v1.6.0
-- kubectl (stable)
+- Terraform
+- kubectl
 - Flux CD
 - Omni CLI (omnictl)
-- Talosctl v1.9.5
+- Talosctl
+
+**Installation Methods:**
+
+1. **Homebrew (Recommended - macOS/Linux):**
+   - Uses `brew install siderolabs/tap/sidero-tools` to install omnictl, talosctl, and kubectl in one command
+   - Then installs Terraform and Flux separately
+   - Fastest and most reliable method
+
+2. **Manual (Linux without Homebrew):**
+   - Downloads binaries directly from official sources
+   - Installs to `/usr/local/bin` or custom directory
+   - Auto-detects OS and architecture
 
 **Features:**
+- Auto-detects Homebrew and uses simplified installation
+- Falls back to manual installation if Homebrew not available
 - Auto-detects OS (Linux/macOS) and architecture (amd64/arm64)
 - Checks for existing installations
-- Prompts for reinstallation if tools already exist
-- Supports custom installation directory
+- Supports custom installation directory (manual mode only)
 
 **Usage:**
 
 ```bash
-# System-wide install (requires sudo)
+# Automatic install (detects Homebrew)
 ./scripts/install-dependencies.sh
 
-# Custom install directory
+# Custom install directory (manual mode only)
 INSTALL_DIR=~/bin ./scripts/install-dependencies.sh
 ```
 
 **Requirements:**
-- curl
-- unzip (for Terraform)
-- sudo privileges (for system-wide install)
+- **Homebrew mode:** Homebrew installed (`/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"`)
+- **Manual mode:** curl, unzip (for Terraform), sudo privileges (for system-wide install)
+
+**References:**
+- Sidero Tools: https://github.com/siderolabs/homebrew-tap
+- Official Docs: https://docs.siderolabs.com/omni/getting-started/getting-started
 
 ---
 
