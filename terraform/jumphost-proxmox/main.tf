@@ -49,7 +49,7 @@ resource "proxmox_virtual_environment_vm" "jumphost" {
   
   # Disk configuration
   disk {
-    datastore_id = var.proxmox_storage
+    datastore_id = var.proxmox_datastore
     interface    = "scsi0"
     size         = var.jumphost_disk_size
     file_format  = "raw"
@@ -63,7 +63,7 @@ resource "proxmox_virtual_environment_vm" "jumphost" {
   
   # Cloud-init drive
   initialization {
-    datastore_id = var.proxmox_storage
+    datastore_id = var.proxmox_datastore
     
     user_data_file_id = proxmox_virtual_environment_file.cloud_init_user_config.id
     
@@ -82,7 +82,7 @@ resource "proxmox_virtual_environment_vm" "jumphost" {
 # Cloud-init configuration file
 resource "proxmox_virtual_environment_file" "cloud_init_user_config" {
   content_type = "snippets"
-  datastore_id = var.proxmox_storage
+  datastore_id = var.proxmox_datastore
   node_name    = var.proxmox_node
   
   source_raw {

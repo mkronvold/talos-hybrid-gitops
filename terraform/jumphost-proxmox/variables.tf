@@ -35,8 +35,8 @@ variable "proxmox_node" {
   type        = string
 }
 
-variable "proxmox_storage" {
-  description = "Proxmox storage pool"
+variable "proxmox_datastore" {
+  description = "Proxmox datastore for VM disks"
   type        = string
 }
 
