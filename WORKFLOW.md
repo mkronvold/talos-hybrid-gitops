@@ -29,9 +29,9 @@ This document shows the complete workflow from empty infrastructure to running a
     └─────────┘         └─────────┘         └─────────┘
 ```
 
-## Real-World Workflow
+## Real-World Workflows
 
-### Scenario: Deploy Production Cluster on vSphere
+### Scenario A: Deploy Production Cluster on vSphere
 
 #### 1. Initial Setup (One-time)
 
@@ -210,7 +210,181 @@ kubectl get pods -n ingress-nginx
 # Ingress controller running
 ```
 
-### Day 2: Add Worker Nodes
+---
+
+### Scenario B: Deploy Development Cluster on Proxmox
+
+#### 1. Initial Setup (One-time)
+
+```bash
+# Clone repository
+git clone https://github.com/mkronvold/talos-hybrid-gitops.git
+cd talos-hybrid-gitops
+
+# Install tools (same as vSphere)
+brew install terraform kubectl fluxcd/tap/flux
+curl -Lo omnictl https://github.com/siderolabs/omni/releases/latest/download/omnictl-darwin-amd64
+chmod +x omnictl && sudo mv omnictl /usr/local/bin/
+
+# Get Omni API key
+export OMNI_ENDPOINT=https://omni.siderolabs.com
+export OMNI_API_KEY=omni_xxxxxxxxxxxxx
+
+# No template needed for Proxmox
+# VMs boot directly from Talos ISO URL
+```
+
+#### 2. Configure Terraform
+
+```bash
+cd terraform/proxmox
+cp terraform.tfvars.example terraform.tfvars
+
+# Edit terraform.tfvars
+cat > terraform.tfvars << EOF
+proxmox_api_url      = "https://proxmox.example.com:8006/api2/json"
+proxmox_api_token_id = "terraform@pam!mytoken"
+proxmox_api_token    = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+
+proxmox_node     = "pve"
+proxmox_datastore = "local-lvm"
+proxmox_bridge    = "vmbr0"
+
+cluster_name    = "dev-proxmox"
+node_count      = 4  # 1 control + 3 workers
+node_cpu        = 2
+node_memory     = 4096
+node_disk_size  = 50
+EOF
+```
+
+#### 3. Deploy Infrastructure (Terraform)
+
+```bash
+# Initialize and plan
+terraform init
+terraform plan -out=tfplan
+
+# Review plan output - should show 4 VMs to be created
+# ...
+# Plan: 4 to add, 0 to change, 0 to destroy.
+
+# Apply
+terraform apply tfplan
+
+# Output shows:
+# vm_names = [
+#   "dev-proxmox-node-1",
+#   "dev-proxmox-node-2",
+#   ...
+# ]
+
+# VMs are now booting from Talos ISO
+```
+
+#### 4. Wait for Machine Registration
+
+```bash
+# VMs boot and automatically register with Omni
+# This takes 2-5 minutes
+
+# Check registered machines
+omnictl get machines
+
+# Expected output:
+# NAMESPACE   NAME                                      CONNECTED
+# default     machine-xyz789...                         true
+# default     machine-uvw012...                         true
+# ...
+
+# Machines show as "Available" in Omni UI
+```
+
+#### 5. Configure Cluster (Omni)
+
+```bash
+cd ../../clusters/omni
+
+# Review cluster configuration
+cat dev-proxmox.yaml
+# Shows: 1 control plane + 3 workers, k8s v1.29.0
+
+# Apply cluster config
+omnictl apply -f dev-proxmox.yaml
+
+# Omni allocates machines and forms cluster
+# This takes 5-10 minutes
+
+# Watch progress
+omnictl get cluster dev-proxmox -w
+
+# Expected output progresses through:
+# PHASE: Provisioning → Scaling → Running
+```
+
+#### 6. Access Cluster
+
+```bash
+# Download kubeconfig
+omnictl kubeconfig dev-proxmox > kubeconfig.dev
+export KUBECONFIG=$(pwd)/kubeconfig.dev
+
+# Verify cluster
+kubectl get nodes
+# NAME                     STATUS   ROLES           AGE
+# dev-proxmox-node-1       Ready    control-plane   5m
+# dev-proxmox-node-2       Ready    <none>          4m
+# dev-proxmox-node-3       Ready    <none>          4m
+# dev-proxmox-node-4       Ready    <none>          4m
+
+kubectl get pods -A
+# All system pods running
+```
+
+#### 7. Bootstrap GitOps (Flux)
+
+```bash
+# Use same GitHub token as vSphere
+export GITHUB_TOKEN=ghp_xxxxxxxxxxxxx
+
+# Bootstrap Flux
+flux bootstrap github \
+  --owner=mkronvold \
+  --repository=talos-hybrid-gitops \
+  --branch=main \
+  --path=kubernetes/clusters/dev-proxmox \
+  --personal
+
+# Flux installs itself and starts watching Git
+kubectl get pods -n flux-system
+# NAME                                       READY   STATUS
+# source-controller-xxx                      1/1     Running
+# kustomize-controller-xxx                   1/1     Running
+# helm-controller-xxx                        1/1     Running
+# notification-controller-xxx                1/1     Running
+```
+
+#### 8. Deploy Applications
+
+```bash
+# Applications are defined in Git
+cd ../../kubernetes/infrastructure
+
+# Flux automatically deploys what's in Git
+flux get kustomizations
+# NAME            READY   MESSAGE
+# infrastructure  True    Applied revision: main/abc123
+
+# Check deployed resources
+kubectl get pods -n ingress-nginx
+# Ingress controller running
+```
+
+---
+
+## Day 2 Operations
+
+### Day 2: Add Worker Nodes (vSphere)
 
 ```bash
 # 1. Update Terraform
@@ -239,6 +413,37 @@ omnictl apply -f prod-vsphere.yaml
 # 6. Verify
 kubectl get nodes
 # Now shows 8 nodes (3 control + 5 workers)
+```
+
+### Day 2: Add Worker Nodes (Proxmox)
+
+```bash
+# 1. Update Terraform
+cd terraform/proxmox
+vim terraform.tfvars
+# Change: node_count = 6  (was 4)
+
+# 2. Apply
+terraform plan
+terraform apply
+# Creates 2 new VMs
+
+# 3. Wait for registration
+omnictl get machines
+# 6 machines now visible
+
+# 4. Update cluster config
+cd ../../clusters/omni
+vim dev-proxmox.yaml
+# Under workers machineSet:
+#   machineCount: 5  (was 3)
+
+# 5. Apply
+omnictl apply -f dev-proxmox.yaml
+
+# 6. Verify
+kubectl get nodes
+# Now shows 6 nodes (1 control + 5 workers)
 ```
 
 ### Day 2: Upgrade Kubernetes
@@ -372,19 +577,60 @@ git push
 ### Multi-Cluster Deployment
 
 ```bash
-# Single repo manages multiple clusters
-for cluster in prod-vsphere dev-proxmox staging-aws; do
-  terraform -chdir=terraform/${cluster} apply -auto-approve
-  omnictl apply -f clusters/omni/${cluster}.yaml
-done
+# Single repo manages multiple clusters across platforms
+# vSphere production cluster
+cd terraform/vsphere
+terraform apply -auto-approve
+omnictl apply -f ../../clusters/omni/prod-vsphere.yaml
+
+# Proxmox development cluster
+cd ../proxmox
+terraform apply -auto-approve
+omnictl apply -f ../../clusters/omni/dev-proxmox.yaml
 ```
 
-### Environment Promotion
+### Cross-Platform Environment Promotion
 
 ```bash
-# Test in dev, promote to prod
+# Test in dev (Proxmox), promote to prod (vSphere)
+# 1. Compare configurations
 git diff clusters/omni/dev-proxmox.yaml clusters/omni/prod-vsphere.yaml
-# Copy validated configs from dev to prod
+
+# 2. Test application in dev
+export KUBECONFIG=kubeconfig.dev
+kubectl apply -f kubernetes/apps/myapp/
+
+# 3. After validation, deploy to prod
+export KUBECONFIG=kubeconfig.prod
+kubectl apply -f kubernetes/apps/myapp/
+
+# 4. Or let Flux handle it via Git
+git add kubernetes/apps/
+git commit -m "Deploy myapp to prod"
+git push
+```
+
+### Platform Migration (Proxmox to vSphere)
+
+```bash
+# Scenario: Move workload from Proxmox dev to vSphere prod
+
+# 1. Backup application state from Proxmox
+export KUBECONFIG=kubeconfig.dev
+kubectl get all -n myapp -o yaml > myapp-backup.yaml
+
+# 2. Create vSphere cluster (if not exists)
+cd terraform/vsphere
+terraform apply
+omnictl apply -f ../../clusters/omni/prod-vsphere.yaml
+
+# 3. Restore to vSphere cluster
+export KUBECONFIG=kubeconfig.prod
+kubectl apply -f myapp-backup.yaml
+
+# 4. Verify migration
+kubectl get pods -n myapp
+# All pods running on vSphere
 ```
 
 ### Cluster Templates
@@ -396,6 +642,54 @@ cp clusters/omni/prod-vsphere.yaml clusters/omni/prod-aws.yaml
 omnictl apply -f clusters/omni/prod-aws.yaml
 ```
 
+## Platform Comparison
+
+### vSphere vs Proxmox Deployment
+
+| Aspect | vSphere | Proxmox |
+|--------|---------|---------|
+| **Template** | Upload Talos OVA (one-time) | Boot from ISO URL (automatic) |
+| **Terraform Provider** | `hashicorp/vsphere` | `bpg/proxmox` |
+| **API Authentication** | Username + Password | API Token |
+| **Typical Use Case** | Production, Enterprise | Development, Home Lab |
+| **VM Provisioning Time** | ~3-5 minutes | ~2-4 minutes |
+| **Storage** | Datastore names | local-lvm, NFS shares |
+| **Networking** | Port Groups | Linux Bridges (vmbr0) |
+| **Cost** | Licensed | Open Source |
+
+### When to Use Each Platform
+
+**Use vSphere when:**
+- Production workloads requiring enterprise support
+- High availability and vMotion needed
+- Already invested in VMware ecosystem
+- Compliance requirements for certified platforms
+
+**Use Proxmox when:**
+- Development and testing environments
+- Cost-sensitive deployments
+- Home lab or small business
+- Open-source preference
+- Learning and experimentation
+
+### Hybrid Approach Example
+
+```bash
+# Development on Proxmox (cheap, fast iteration)
+./scripts/new-site.sh la1d proxmox --location "LA Dev Lab"
+./scripts/new-cluster.sh la1d api-test --control-planes 1 --workers 2
+./scripts/deploy-infrastructure.sh la1d clusters/omni/la1d/api-test.yaml
+
+# Production on vSphere (reliable, supported)
+./scripts/new-site.sh ny1p vsphere --location "NY Prod DC"
+./scripts/new-cluster.sh ny1p api --control-planes 3 --workers 5
+./scripts/deploy-infrastructure.sh ny1p clusters/omni/ny1p/api.yaml
+
+# Same application manifests work on both!
+kubectl --context=dev apply -f kubernetes/apps/api/
+kubectl --context=prod apply -f kubernetes/apps/api/
+```
+
 ## Next Steps
 
 1. Set up CI/CD pipelines (see `.github/workflows/`)
@@ -403,3 +697,5 @@ omnictl apply -f clusters/omni/prod-aws.yaml
 3. Configure backups (Velero)
 4. Set up disaster recovery procedures
 5. Document runbooks for common operations
+6. Test cross-platform disaster recovery
+7. Implement cost tracking per platform
