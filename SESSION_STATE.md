@@ -399,16 +399,55 @@ brew install siderolabs/tap/sidero-tools  # omnictl, talosctl, kubectl
 brew install terraform fluxcd/tap/flux
 ```
 
+### Session 5: Fix Proxmox Authentication
+**Date**: 2025-12-16 (20:22 - 20:35 UTC)  
+**Duration**: ~13 minutes  
+**Commits**: 1 commit  
+**Status**: ✅ Completed  
+**Final Commit**: b83854b - Fix Proxmox Terraform provider authentication
+
+**Issue Reported**:
+User encountered "Warning: Value for undeclared variable" error for `proxmox_api_token` when running `terraform plan`.
+
+**Root Cause**:
+The terraform.tfvars.example referenced `proxmox_api_token` but variables.tf only declared `proxmox_username` and `proxmox_password`. The bpg/proxmox provider supports two authentication methods but the module only configured username/password.
+
+**Changes Made**:
+1. ✅ Added `proxmox_api_token` variable to proxmox/variables.tf
+2. ✅ Added `proxmox_api_token` variable to jumphost-proxmox/variables.tf
+3. ✅ Updated provider blocks to auto-detect auth method (API token takes priority)
+4. ✅ Standardized variable names across both Proxmox modules
+5. ✅ Updated terraform.tfvars.example files with clear auth options
+6. ✅ Created comprehensive terraform/proxmox/README.md with:
+   - Step-by-step Proxmox API token creation guide
+   - Authentication configuration examples
+   - Troubleshooting section for common errors
+   - Advanced usage patterns
+   - Permission requirements
+
+**Technical Details**:
+The provider now uses conditional logic:
+- If `proxmox_api_token` is set → uses API token (recommended)
+- If `proxmox_api_token` is empty → falls back to username/password
+- Makes all three variables optional with sensible defaults
+
+**Benefits**:
+- ✅ API token authentication now supported (more secure for automation)
+- ✅ Backward compatible with username/password auth
+- ✅ Clear documentation on creating API tokens in Proxmox
+- ✅ Consistent variable naming across modules
+- ✅ Fixes the "undeclared variable" warning
+
 ## Git Status
 
 ```
 Repository: https://github.com/mkronvold/talos-hybrid-gitops
 Branch: main
-Last Commit: 1037be2 - Simplify tool installation using Homebrew sidero-tools
-Total Commits: 18
+Last Commit: b83854b - Fix Proxmox Terraform provider authentication
+Total Commits: 20
 Working Tree: Clean ✅
 Remote Status: Up to date with origin/main ✅
-Session End: 2025-12-16T19:58:00Z ✅
+Session End: 2025-12-16T20:35:00Z ✅
 ```
 
 ## Key Questions Answered This Session
