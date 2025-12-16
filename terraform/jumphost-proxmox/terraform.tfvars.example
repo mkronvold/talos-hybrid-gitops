@@ -11,10 +11,9 @@ proxmox_api_token = "root@pam!terraform=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 # proxmox_password = "your-password"
 
 # Proxmox Resources
-proxmox_node                = "pve"
-proxmox_datastore           = "local-lvm"          # For VM disks
-proxmox_snippets_datastore  = "local"              # For cloud-init snippets (must support 'snippets' content type)
-proxmox_bridge              = "vmbr0"
+proxmox_node      = "pve"
+proxmox_datastore = "local-lvm"
+proxmox_bridge    = "vmbr0"
 
 # Ubuntu Template
 # Create Ubuntu cloud image template in Proxmox first

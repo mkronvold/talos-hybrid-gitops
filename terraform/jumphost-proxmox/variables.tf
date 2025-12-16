@@ -36,14 +36,8 @@ variable "proxmox_node" {
 }
 
 variable "proxmox_datastore" {
-  description = "Proxmox datastore for VM disks"
+  description = "Proxmox datastore for VM disks and cloud-init"
   type        = string
-}
-
-variable "proxmox_snippets_datastore" {
-  description = "Proxmox datastore for cloud-init snippets (must support 'snippets' content type, typically 'local')"
-  type        = string
-  default     = "local"
 }
 
 variable "proxmox_bridge" {

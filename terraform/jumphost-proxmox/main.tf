@@ -15,10 +15,6 @@ provider "proxmox" {
   username  = var.proxmox_api_token == "" ? var.proxmox_username : null
   password  = var.proxmox_api_token == "" ? var.proxmox_password : null
   insecure  = var.proxmox_insecure
-  
-  ssh {
-    agent = true
-  }
 }
 
 # Cloud-init user data
@@ -65,11 +61,12 @@ resource "proxmox_virtual_environment_vm" "jumphost" {
     model  = "virtio"
   }
   
-  # Cloud-init drive
+  # Cloud-init drive with inline user data (no snippets storage required)
   initialization {
     datastore_id = var.proxmox_datastore
     
-    user_data_file_id = proxmox_virtual_environment_file.cloud_init_user_config.id
+    user_data_content_type = "text/cloud-config"
+    user_data              = local.cloud_init_user_data
     
     ip_config {
       ipv4 {
@@ -81,18 +78,6 @@ resource "proxmox_virtual_environment_vm" "jumphost" {
   # Wait for network
   on_boot = true
   started = true
-}
-
-# Cloud-init configuration file
-resource "proxmox_virtual_environment_file" "cloud_init_user_config" {
-  content_type = "snippets"
-  datastore_id = var.proxmox_snippets_datastore
-  node_name    = var.proxmox_node
-  
-  source_raw {
-    data = local.cloud_init_user_data
-    file_name = "jumphost-${var.jumphost_hostname}-cloud-init.yaml"
-  }
 }
 
 # Wait for cloud-init to complete
