@@ -66,7 +66,7 @@ done
 if [ -z "$PLATFORM" ]; then
     SITE_METADATA_FILE="$REPO_ROOT/clusters/omni/$SITE_CODE/.site-metadata"
     if [ -f "$SITE_METADATA_FILE" ]; then
-        PLATFORM=$(grep "^platform=" "$SITE_METADATA_FILE" | cut -d= -f2)
+        PLATFORM=$(grep "^PLATFORM=" "$SITE_METADATA_FILE" | cut -d= -f2 | tr -d '"')
         echo "Detected platform: $PLATFORM"
     else
         echo "Error: Could not detect platform. Site metadata not found."
