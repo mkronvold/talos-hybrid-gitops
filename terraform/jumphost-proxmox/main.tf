@@ -4,7 +4,7 @@ terraform {
   required_providers {
     proxmox = {
       source  = "bpg/proxmox"
-      version = "~> 0.50"
+      version = "0.60.1"  # Specific version to avoid SSL bugs in 0.89.x
     }
   }
 }
