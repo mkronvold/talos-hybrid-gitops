@@ -22,18 +22,21 @@ cd talos-hybrid-gitops
 ./scripts/install-dependencies.sh
 ```
 
-### 2. Get Omni API Key
+### 2. Get Omni Service Account
 
-1. Visit https://omni.siderolabs.com
-2. Sign up (free tier: 10 machines, 1 cluster)
-3. Go to Settings → API Keys → Create new key
-4. Save the key securely
+1. Visit your Omni instance (e.g., https://your-instance.omni.siderolabs.io)
+2. Sign up or log in
+3. Go to Settings → Service Accounts → Create new service account
+4. Download the `omni.sh` script provided
 
 ### 3. Set Credentials
 
 ```bash
-export OMNI_ENDPOINT=https://omni.siderolabs.com
-export OMNI_API_KEY=<your-api-key>
+# Source the Omni credentials script
+source ~/omni.sh
+
+# Or add to ~/.bashrc for automatic loading:
+echo "source ~/omni.sh" >> ~/.bashrc
 ```
 
 ## Quick Deploy

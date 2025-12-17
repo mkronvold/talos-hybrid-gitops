@@ -47,10 +47,10 @@ brew install terraform fluxcd/tap/flux
 # OR use the automated script
 ./scripts/install-dependencies.sh
 
-# Get Omni API key
-# Visit https://omni.siderolabs.com → Settings → API Keys → Create
-export OMNI_ENDPOINT=https://omni.siderolabs.com
-export OMNI_API_KEY=omni_xxxxxxxxxxxxx
+# Get Omni service account credentials
+# Visit your Omni instance → Settings → Service Accounts → Create
+# Download the omni.sh script and add to ~/.bashrc or source it
+source ~/omni.sh
 
 # Upload Talos OVA to vSphere
 # Download from: https://github.com/siderolabs/talos/releases/v1.9.5/talos-amd64.ova
@@ -230,9 +230,9 @@ brew install terraform fluxcd/tap/flux
 # OR use the automated script
 ./scripts/install-dependencies.sh
 
-# Get Omni API key
-export OMNI_ENDPOINT=https://omni.siderolabs.com
-export OMNI_API_KEY=omni_xxxxxxxxxxxxx
+# Get Omni service account credentials
+# Source the omni.sh script provided by Omni
+source ~/omni.sh
 
 # No template needed for Proxmox
 # VMs boot directly from Talos ISO URL

@@ -1,0 +1,29 @@
+# Proxmox endpoint
+proxmox_endpoint = "https://proxmox1:8006"
+proxmox_insecure = true
+
+# Authentication - API Token
+proxmox_api_token = "root@pam!terraform=7143ecda-75d6-4c68-8399-e787792c127f"
+
+# Proxmox Resources
+proxmox_node      = "proxmox1"
+proxmox_datastore = "zfs"
+proxmox_bridge    = "vmbr0"
+
+# Ubuntu Template
+ubuntu_template_id = 9000
+
+# Jumphost Configuration
+jumphost_hostname = "talos-jumphost-dk1d"
+jumphost_cpu      = 2
+jumphost_memory   = 4096
+jumphost_disk_size = 50
+
+# User Configuration
+jumphost_username = "mkronvold"
+jumphost_ssh_keys = [
+  "ssh-rsa AAAAB3NzaC1yc2EAAAABJQAAAgEAo/9UMIf0Iq/07LUYyHlwu7Q5fodRZuqth56zsZiXeCMNeRRBhEWA/a+KpXjdgaW5pRyD7Tew6mf2EIWEM7NEPujfSdzMuRp/Uw8E7m/+hkVNCCEsYYe96IR8ldFgkfqi6UGIQZkKTgzli5mRAcPbU5xByAf9cNmC32yN9XFHPoaiiIzWQXtgWf81wAszBa6bP5PdJJK+GfapoLgn5hbHsGqH0H667XxZas73EvoKjHpy89XH0Z5jaHKIxbgHGwUvOBqZ4fUTlDm8teeOs+GdneCblHuXXF8+2HP4bWaifch8YANJutytsQI9DfcjhX+jRB7ZWOl1go+UEKjoY7R91G31t+At1qMKDynU+RBasRnXvlq41/Pf9xJANEaql7LxzJ9JCag88AyA6jjUJsYssOkWx7NizlHb5HPmJ3CHMqKcAyZSBf624DbRfqh5jAG+mCNLzxFoXf7H+5sGwKLiMzKa+k/M4fCjCft4iAVu9fSqPyx/ST465XOd4hPQ9y18E/f+G2PbCZjJBFk03XtFUPIT0OGB00QvtwrK8f4eGS45/xKBU6ALu83fAfph8DZLxUOUSYCRa3JkOiaNe+MlWFUbWB2XLigHAP4owRXm0+s1GBf/5VGXB4Op7UPJP6I3ToIgtxnOeAw3XHRwAqjHpCeoGN/qj2IfT/+YEQnQZuU="
+]
+
+# Optional: Set timezone
+jumphost_timezone = "UTC"

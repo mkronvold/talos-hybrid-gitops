@@ -52,15 +52,15 @@ jobs:
       - name: Configure Omni
         env:
           OMNI_ENDPOINT: ${{ secrets.OMNI_ENDPOINT }}
-          OMNI_API_KEY: ${{ secrets.OMNI_API_KEY }}
+          OMNI_SERVICE_ACCOUNT_KEY: ${{ secrets.OMNI_SERVICE_ACCOUNT_KEY }}
         run: |
           omnictl config new --endpoint "$OMNI_ENDPOINT"
-          # Note: API key authentication setup depends on Omni version
+          # Service account key is automatically used via environment variable
 
       - name: Apply Cluster Configurations
         env:
           OMNI_ENDPOINT: ${{ secrets.OMNI_ENDPOINT }}
-          OMNI_API_KEY: ${{ secrets.OMNI_API_KEY }}
+          OMNI_SERVICE_ACCOUNT_KEY: ${{ secrets.OMNI_SERVICE_ACCOUNT_KEY }}
         run: |
           for file in clusters/omni/*.yaml; do
             echo "Applying $file"
@@ -70,7 +70,7 @@ jobs:
       - name: Get Cluster Status
         env:
           OMNI_ENDPOINT: ${{ secrets.OMNI_ENDPOINT }}
-          OMNI_API_KEY: ${{ secrets.OMNI_API_KEY }}
+          OMNI_SERVICE_ACCOUNT_KEY: ${{ secrets.OMNI_SERVICE_ACCOUNT_KEY }}
         run: |
           echo "Cluster status:"
           omnictl get clusters

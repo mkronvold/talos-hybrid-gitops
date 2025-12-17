@@ -55,8 +55,9 @@ terraform apply
 
 ### 2. Configure Clusters (Omni CLI)
 ```bash
-export OMNI_ENDPOINT=https://omni.siderolabs.com
-export OMNI_API_KEY=<your-api-key>
+# Source Omni credentials (provided by Omni)
+source ~/omni.sh
+
 omnictl apply -f clusters/omni/prod-vsphere.yaml
 ```
 
@@ -100,8 +101,9 @@ brew install terraform fluxcd/tap/flux
 
 3. **Set Omni credentials:**
    ```bash
-   export OMNI_ENDPOINT=https://omni.siderolabs.com
-   export OMNI_API_KEY=<your-api-key>
+   # Source Omni credentials script (provided when creating service account)
+   source ~/omni.sh
+   # Or add to ~/.bashrc for persistence
    ```
 
 4. **Deploy infrastructure:**

@@ -56,12 +56,11 @@ cat clusters/omni/dk1d/<cluster-name>.yaml
 ### 3. Deploy Infrastructure and Cluster
 
 ```bash
-# Set Omni credentials
-export OMNI_ENDPOINT=https://omni.siderolabs.com
-export OMNI_API_KEY=<your-key>
+# Set Omni credentials (if not already in ~/.bashrc)
+source ~/omni.sh
 
 # Deploy
-./scripts/deploy-infrastructure.sh dk1d proxmox \
+./scripts/deploy-infrastructure.sh dk1d \
   clusters/omni/dk1d/<cluster-name>.yaml
 ```
 
@@ -69,7 +68,7 @@ export OMNI_API_KEY=<your-key>
 
 | Cluster Name | Control Planes | Workers | Status | Created |
 |--------------|----------------|---------|--------|---------|
-| (none yet)   | -              | -       | -      | -       |
+| dk1d-baseline | 1 | 3 | not deployed | 2025-12-17 |
 
 ## Notes
 

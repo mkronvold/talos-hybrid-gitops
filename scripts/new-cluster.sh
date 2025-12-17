@@ -28,6 +28,26 @@ info() {
     echo -e "${BLUE}[INFO]${NC} $*"
 }
 
+load_site_metadata() {
+    local site_code=$1
+    local metadata_file="${PROJECT_ROOT}/clusters/omni/${site_code}/.site-metadata"
+    
+    if [[ ! -f "$metadata_file" ]]; then
+        error "Site metadata not found: $metadata_file"
+        error "Site may not exist or was not created with new-site.sh"
+        return 1
+    fi
+    
+    source "$metadata_file"
+    
+    if [[ -z "${PLATFORM:-}" ]]; then
+        error "Platform not defined in site metadata"
+        return 1
+    fi
+    
+    log "✓ Loaded site metadata: $site_code (platform: $PLATFORM)"
+}
+
 # Usage information
 usage() {
     cat << EOF
@@ -486,8 +506,7 @@ main() {
     log "     ${GREEN}cat $yaml_file${NC}"
     echo ""
     log "  3. Deploy infrastructure and cluster:"
-    log "     ${GREEN}export OMNI_ENDPOINT=https://omni.siderolabs.com${NC}"
-    log "     ${GREEN}export OMNI_API_KEY=<your-key>${NC}"
+    log "     ${GREEN}source ~/omni.sh  # Set credentials if not in ~/.bashrc${NC}"
     log "     ${GREEN}./scripts/deploy-infrastructure.sh ${site_code} $yaml_file${NC}"
     echo ""
 }

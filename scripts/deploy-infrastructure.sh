@@ -84,8 +84,8 @@ ${GREEN}Examples:${NC}
   $0 la1s
 
 ${GREEN}Required Environment Variables:${NC}
-  OMNI_ENDPOINT  - Omni API endpoint (https://omni.siderolabs.com)
-  OMNI_API_KEY   - Omni API key
+  OMNI_ENDPOINT            - Omni API endpoint (https://damocles.na-west-1.omni.siderolabs.io)
+  OMNI_SERVICE_ACCOUNT_KEY - Omni service account key
 
 ${GREEN}Configuration Files:${NC}
   Terraform: terraform/<platform>/terraform.tfvars.<site-code>
@@ -139,12 +139,12 @@ check_prerequisites() {
     fi
     
     if [[ -z "${OMNI_ENDPOINT:-}" ]]; then
-        error "OMNI_ENDPOINT not set. Export OMNI_ENDPOINT=https://omni.siderolabs.com"
+        error "OMNI_ENDPOINT not set. Export OMNI_ENDPOINT=<omni-endpoint-url>"
         missing=1
     fi
     
-    if [[ -z "${OMNI_API_KEY:-}" ]]; then
-        error "OMNI_API_KEY not set. Get your API key from Omni and export OMNI_API_KEY=<key>"
+    if [[ -z "${OMNI_SERVICE_ACCOUNT_KEY:-}" ]]; then
+        error "OMNI_SERVICE_ACCOUNT_KEY not set. Get your service account key from Omni and export OMNI_SERVICE_ACCOUNT_KEY=<key>"
         missing=1
     fi
     

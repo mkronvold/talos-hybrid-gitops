@@ -74,9 +74,10 @@ final_message: |
     - GitHub Copilot CLI
   
   Next steps:
-    1. Configure Terraform: cd ~/talos-hybrid-gitops/terraform/vsphere
-    2. Set Omni credentials: export OMNI_ENDPOINT=... OMNI_API_KEY=...
-    3. Deploy cluster: cd ~/talos-hybrid-gitops && ./scripts/deploy-infrastructure.sh
+    1. Configure site: ./scripts/new-site.sh <site-code> <platform> --location "<location>"
+    2. Create cluster: ./scripts/new-cluster.sh <site-code> <cluster-name>
+    3. Set Omni credentials: source ~/omni.sh (add to ~/.bashrc)
+    4. Deploy: ./scripts/deploy-infrastructure.sh <site-code> clusters/omni/<site-code>/<cluster>.yaml
   
   Documentation: ~/talos-hybrid-gitops/README.md
   ====================================

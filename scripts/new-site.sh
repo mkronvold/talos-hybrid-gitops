@@ -418,12 +418,11 @@ cat clusters/omni/${site_code}/<cluster-name>.yaml
 ### 3. Deploy Infrastructure and Cluster
 
 \`\`\`bash
-# Set Omni credentials
-export OMNI_ENDPOINT=https://omni.siderolabs.com
-export OMNI_API_KEY=<your-key>
+# Set Omni credentials (if not already in ~/.bashrc)
+source ~/omni.sh
 
-# Deploy
-./scripts/deploy-infrastructure.sh ${site_code} ${platform} \\
+# Deploy (platform auto-detected)
+./scripts/deploy-infrastructure.sh ${site_code} \\
   clusters/omni/${site_code}/<cluster-name>.yaml
 \`\`\`
 

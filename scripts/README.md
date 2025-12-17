@@ -473,8 +473,7 @@ omnictl version
 - Site-specific Terraform variables configured (`terraform.tfvars.<site-code>`)
 - Omni credentials set:
   ```bash
-  export OMNI_ENDPOINT=https://omni.siderolabs.com
-  export OMNI_API_KEY=<your-api-key>
+  source ~/omni.sh
   ```
 - Tools installed (terraform, omnictl, kubectl)
 
@@ -501,8 +500,7 @@ cat > clusters/omni/ny1d-cluster.yaml <<EOF
 EOF
 
 # 4. Set Omni credentials
-export OMNI_ENDPOINT=https://omni.siderolabs.com
-export OMNI_API_KEY=your-api-key-here
+source ~/omni.sh
 
 # 5. Deploy site infrastructure and cluster
 ./scripts/deploy-infrastructure.sh ny1d vsphere clusters/omni/ny1d-cluster.yaml
@@ -540,8 +538,7 @@ kubectl get nodes
 #### 4. Deploy Infrastructure and Clusters
 ```bash
 # Set Omni credentials
-export OMNI_ENDPOINT=https://omni.siderolabs.com
-export OMNI_API_KEY=<your-key>
+source ~/omni.sh
 
 # Deploy (platform auto-detected from site)
 ./scripts/deploy-infrastructure.sh ny1d clusters/omni/ny1d/web.yaml
@@ -610,7 +607,7 @@ source ~/.bashrc  # or source ~/.zshrc
 1. Verify Omni credentials are set:
    ```bash
    echo $OMNI_ENDPOINT
-   echo $OMNI_API_KEY
+   echo $OMNI_SERVICE_ACCOUNT_KEY
    ```
 2. Check machines are registered: `omnictl get machines`
 3. Verify cluster YAML syntax: `omnictl validate -f <cluster-yaml>`

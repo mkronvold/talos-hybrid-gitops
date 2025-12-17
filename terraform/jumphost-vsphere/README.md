@@ -200,13 +200,12 @@ cd ~/talos-hybrid-gitops/terraform/vsphere
 cp terraform.tfvars.example terraform.tfvars
 # Edit with your settings
 
-# Set Omni credentials
-export OMNI_ENDPOINT=https://omni.siderolabs.com
-export OMNI_API_KEY=<your-api-key>
+# Set Omni credentials (if not already in ~/.bashrc)
+source ~/omni.sh
 
 # Deploy a cluster
 cd ~/talos-hybrid-gitops
-./scripts/deploy-infrastructure.sh vsphere clusters/omni/prod-vsphere.yaml
+./scripts/deploy-infrastructure.sh <site-code> clusters/omni/<site-code>/<cluster>.yaml
 ```
 
 ## Outputs

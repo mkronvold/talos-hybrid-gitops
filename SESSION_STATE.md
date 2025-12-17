@@ -113,8 +113,8 @@ vim terraform/vsphere/terraform.tfvars.ny1d
 # Set: node_count = 8  (3 CP + 5 workers)
 
 # 7. Set Omni credentials
-export OMNI_ENDPOINT=https://omni.siderolabs.com
-export OMNI_API_KEY=<your-api-key>
+source ~/omni.sh
+# Or add to ~/.bashrc for automatic loading
 
 # 8. Deploy jumphost
 ./scripts/deploy-jumphost.sh ny1d
@@ -178,14 +178,11 @@ cd ~/talos-hybrid-gitops
 ### Quick Deploy (Automated)
 ```bash
 cd ~/src/talos-hybrid-gitops
-export OMNI_ENDPOINT=https://omni.siderolabs.com
-export OMNI_API_KEY=<your-key>
+# Set Omni credentials
+source ~/omni.sh
 
-# Deploy vSphere cluster
-./scripts/deploy-infrastructure.sh vsphere clusters/omni/prod-vsphere.yaml
-
-# OR deploy Proxmox cluster
-./scripts/deploy-infrastructure.sh proxmox clusters/omni/dev-proxmox.yaml
+# Deploy cluster (platform auto-detected from site)
+./scripts/deploy-infrastructure.sh <site-code> clusters/omni/<site-code>/<cluster>.yaml
 ```
 
 ### Manual Deploy (Step-by-step)
@@ -307,7 +304,7 @@ flux bootstrap github \
 - CI/CD workflows need secrets configured in GitHub:
   - VSPHERE_USER, VSPHERE_PASSWORD
   - PROXMOX_USERNAME, PROXMOX_PASSWORD
-  - OMNI_ENDPOINT, OMNI_API_KEY
+  - OMNI_ENDPOINT, OMNI_SERVICE_ACCOUNT_KEY
 - Repository is public by default
 - Talos version: v1.9.5
 - Kubernetes version: v1.29.0 (configurable in Omni YAML)
