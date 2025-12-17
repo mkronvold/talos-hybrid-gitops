@@ -15,9 +15,6 @@ provider "proxmox" {
   username  = var.proxmox_api_token == "" ? var.proxmox_username : null
   password  = var.proxmox_api_token == "" ? var.proxmox_password : null
   insecure  = true  # Hardcoded to bypass SSL verification issues
-  
-  # Use local directory for temporary downloads to avoid SSL issues
-  tmp_download_directory = "/tmp"
 }
 
 # Cloud-init user data

@@ -191,6 +191,8 @@ plan_terraform() {
     log "Planning Terraform changes for $site_code..."
     
     cd "$TERRAFORM_DIR"
+    # Set environment variable to skip SSL verification for Proxmox provider
+    export PROXMOX_VE_INSECURE=true
     terraform plan -var-file="$var_file" -out="tfplan-$site_code"
     
     log "✓ Terraform plan complete"
@@ -203,6 +205,8 @@ apply_terraform() {
     log "Deploying jumphost VM for $site_code..."
     
     cd "$TERRAFORM_DIR"
+    # Ensure SSL verification is disabled for Proxmox provider
+    export PROXMOX_VE_INSECURE=true
     terraform apply "tfplan-$site_code"
     rm -f "tfplan-$site_code"
     
