@@ -49,62 +49,15 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
-# Check for Homebrew (macOS/Linux)
-if command_exists brew; then
-    echo -e "${BLUE}=== Homebrew detected - Using simplified installation ===${NC}\n"
-    echo -e "${GREEN}Installing all Talos/Omni tools with one command...${NC}"
-    echo -e "${YELLOW}Running: brew install siderolabs/tap/sidero-tools${NC}\n"
-    
-    brew install siderolabs/tap/sidero-tools
-    
-    echo -e "\n${GREEN}✓ Sidero tools installed (includes omnictl, talosctl, kubectl)${NC}\n"
-    
-    # Check if Terraform is installed
-    if ! command_exists terraform; then
-        echo -e "${YELLOW}Installing Terraform...${NC}"
-        brew install terraform
-        echo -e "${GREEN}✓ Terraform installed${NC}\n"
-    else
-        echo -e "Terraform: ${GREEN}already installed${NC}\n"
-    fi
-    
-    # Check if Flux is installed
-    if ! command_exists flux; then
-        echo -e "${YELLOW}Installing Flux CD...${NC}"
-        brew install fluxcd/tap/flux
-        echo -e "${GREEN}✓ Flux installed${NC}\n"
-    else
-        echo -e "Flux: ${GREEN}already installed${NC}\n"
-    fi
-    
-    echo -e "${GREEN}=== Installation Complete ===${NC}\n"
-    
-    # Summary
-    echo -e "${GREEN}Installed tools:${NC}"
-    [[ -n "$(command -v terraform)" ]] && echo -e "  • Terraform: $(terraform version | head -n1)"
-    [[ -n "$(command -v kubectl)" ]] && echo -e "  • kubectl: $(kubectl version --client --short 2>/dev/null || kubectl version --client 2>&1 | head -n1)"
-    [[ -n "$(command -v flux)" ]] && echo -e "  • Flux: $(flux version --client 2>&1 | grep "flux:" || echo "installed")"
-    [[ -n "$(command -v omnictl)" ]] && echo -e "  • Omni CLI: $(omnictl version --short 2>/dev/null || omnictl version 2>&1 | head -n1)"
-    [[ -n "$(command -v talosctl)" ]] && echo -e "  • talosctl: $(talosctl version --short --client 2>&1 | head -n1)"
-    
-    echo ""
-    echo -e "${YELLOW}Next steps:${NC}"
-    echo -e "  1. Set Omni credentials:"
-    echo -e "     ${GREEN}export OMNI_ENDPOINT=https://omni.siderolabs.com${NC}"
-    echo -e "     ${GREEN}export OMNI_API_KEY=<your-api-key>${NC}"
-    echo ""
-    echo -e "  2. Configure site:"
-    echo -e "     ${GREEN}./scripts/new-site.sh <site-code> <platform> --location \"<location>\"${NC}"
-    echo ""
-    echo -e "  3. Deploy infrastructure:"
-    echo -e "     ${GREEN}./scripts/deploy-infrastructure.sh <site-code> clusters/omni/<site-code>/<cluster>.yaml${NC}"
-    echo ""
-    
-    exit 0
-fi
 
-# Fallback to manual installation for non-Homebrew systems
-echo -e "${BLUE}=== Manual installation mode (no Homebrew detected) ===${NC}\n"
+# Check if mg is installed
+if ! command_exists mg; then
+    echo -e "${YELLOW}Installing mg...${NC}"
+    $USE_SUDO apt install -y mg
+    echo -e "${GREEN}✓ mg installed${NC}\n"
+else
+    echo -e "mg: ${GREEN}already installed${NC}\n"
+fi
 
 # Function to get installed version
 get_version() {
@@ -121,7 +74,16 @@ get_version() {
 # Install Terraform
 install_terraform() {
     echo -e "${YELLOW}Installing Terraform $TERRAFORM_VERSION...${NC}"
-    
+
+    # Check if Unzip is installed
+    if ! command_exists unzip; then
+        echo -e "${YELLOW}Installing Unzip...${NC}"
+        $USE_SUDO apt install -y unzip
+        echo -e "${GREEN}✓ Unzip installed${NC}\n"
+    else
+        echo -e "Unzip: ${GREEN}already installed${NC}\n"
+    fi
+
     local tmpdir=$(mktemp -d)
     cd "$tmpdir"
     
