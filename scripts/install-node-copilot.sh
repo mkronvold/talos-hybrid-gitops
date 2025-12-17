@@ -67,7 +67,7 @@ install_copilot_cli() {
     load_nvm
     
     # Install Copilot CLI globally
-    npm install -g @githubnext/github-copilot-cli
+    npm install -g @github/copilot
     
     echo -e "${GREEN}✓ GitHub Copilot CLI installed${NC}"
 }
