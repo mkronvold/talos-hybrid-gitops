@@ -1,16 +1,30 @@
-# Session State - 2025-12-16
+# Session State - 2025-12-17
 
 ## What Was Accomplished
 
 Created a complete **Multi-Site Hybrid GitOps Platform** for Talos Kubernetes cluster management with comprehensive automation, site metadata tracking, and full support for both vSphere and Proxmox hypervisors.
 
+### Latest Session (2025-12-17)
+
+**Created dk1d Site Infrastructure:**
+- Created site `dk1d` (Denmark Zone 1 Dev) on Proxmox platform
+- Generated baseline cluster configuration with 3 control planes + 3 workers
+- Created Terraform configurations for Proxmox infrastructure and jumphost
+
+**Updated Omni Credentials System:**
+- Replaced `OMNI_API_KEY` with `OMNI_SERVICE_ACCOUNT_KEY` throughout all documentation
+- Updated `deploy-infrastructure.sh` to check for correct environment variable
+- Simplified credential setup to use `source ~/omni.sh` approach
+- Updated GitHub Actions workflows to use service account authentication
+- Updated all example commands in 18 files across documentation and scripts
+
 ## Repository Details
 
-- **Location**: `~/src/talos-hybrid-gitops`
+- **Location**: `~/talos-hybrid-gitops`
 - **GitHub**: https://github.com/mkronvold/talos-hybrid-gitops
 - **Branch**: main
-- **Total Commits**: 14 commits pushed successfully
-- **Last Session**: 2025-12-16T20:36:36Z
+- **Total Commits**: 15 commits pushed successfully
+- **Last Session**: 2025-12-17T03:19:05Z
 
 ## Architecture Overview
 
@@ -45,6 +59,10 @@ The hybrid approach uses three distinct layers:
 │       ├── cloud-init.yaml          # Auto-installs all tools
 │       └── terraform.tfvars.example
 ├── clusters/omni/
+│   ├── dk1d/                         # Denmark Zone 1 Dev (Proxmox)
+│   │   ├── .site-metadata           # Platform: proxmox
+│   │   ├── README.md                # Site documentation
+│   │   └── baseline.yaml            # 3 CP + 3 worker cluster
 │   ├── <site-code>/                  # Per-site directory structure
 │   │   ├── .site-metadata           # Platform tracking (committed)
 │   │   ├── README.md                # Site documentation
