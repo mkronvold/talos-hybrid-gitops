@@ -349,6 +349,27 @@ flux bootstrap github \
 **Status**: ✅ Completed  
 **Final Commit**: cc9be43 - Add Proxmox examples to WORKFLOW.md
 
+### Session 4: dk1d Site & Omni Credentials Update
+**Date**: 2025-12-17 (03:05 - 03:19 UTC)  
+**Duration**: ~14 minutes  
+**Commits**: 1 commit  
+**Status**: ✅ Completed  
+**Final Commit**: f04bb09 - Update Omni credentials to use OMNI_SERVICE_ACCOUNT_KEY
+
+**What Was Done:**
+- Created dk1d site (Denmark Zone 1 Dev) on Proxmox
+- Generated baseline cluster config: 3 control planes + 3 workers
+- Created Terraform configurations:
+  - `terraform/proxmox/terraform.tfvars.dk1d`
+  - `terraform/jumphost-proxmox/terraform.tfvars.dk1d`
+  - `clusters/omni/dk1d/baseline.yaml`
+- Updated all Omni authentication references:
+  - Changed `OMNI_API_KEY` → `OMNI_SERVICE_ACCOUNT_KEY`
+  - Updated 18 files (scripts, docs, workflows)
+  - Simplified to `source ~/omni.sh` approach
+  - Updated GitHub Actions workflows
+- Ready for deployment with correct credentials
+
 **Major Accomplishments**:
 1. ✅ Multi-site architecture with site codes (ny1d, sf2p, etc.)
 2. ✅ Site metadata system (.site-metadata) for platform tracking

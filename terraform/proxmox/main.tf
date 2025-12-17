@@ -24,7 +24,7 @@ provider "proxmox" {
 # Download Talos ISO to Proxmox if needed
 resource "proxmox_virtual_environment_download_file" "talos_iso" {
   content_type = "iso"
-  datastore_id = var.proxmox_datastore
+  datastore_id = var.proxmox_iso_storage
   node_name    = var.proxmox_node
   url          = "https://github.com/siderolabs/talos/releases/download/v${var.talos_version}/metal-amd64.iso"
   
@@ -45,7 +45,6 @@ resource "proxmox_virtual_environment_vm" "talos_node" {
 
   # Boot from Talos ISO
   cdrom {
-    enabled   = true
     file_id   = proxmox_virtual_environment_download_file.talos_iso.id
     interface = "ide0"
   }

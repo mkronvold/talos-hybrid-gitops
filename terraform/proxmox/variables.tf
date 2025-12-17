@@ -36,9 +36,15 @@ variable "proxmox_node" {
 }
 
 variable "proxmox_datastore" {
-  description = "Proxmox datastore for disks"
+  description = "Proxmox datastore for VM disks"
   type        = string
   default     = "local-lvm"
+}
+
+variable "proxmox_iso_storage" {
+  description = "Proxmox storage for ISO files (must be file-based, e.g., local)"
+  type        = string
+  default     = "local"
 }
 
 variable "proxmox_bridge" {
