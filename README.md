@@ -112,7 +112,8 @@ brew install terraform fluxcd/tap/flux
    # Navigate to: Settings → Download Installation Media
    # Select: nocloud format, amd64 architecture, .raw.gz format
    # Copy the URL and add to terraform.tfvars:
-   talos_image_url = "https://factory.talos.dev/image/YOUR-ID/v1.11.5/nocloud-amd64.raw.gz"
+   # Use {version} placeholder to automatically use talos_version variable
+   talos_image_url = "https://factory.talos.dev/image/YOUR-SCHEMATIC-ID/v{version}/nocloud-amd64.raw.gz"
    ```
    
    **Why Omni Factory images?** Standard Talos ISOs don't know about Omni. Factory images have your Omni credentials embedded so VMs auto-register on boot.

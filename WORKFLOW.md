@@ -265,7 +265,8 @@ node_memory     = 4096
 node_disk_size  = 50
 
 # IMPORTANT: Use Omni Factory image for automatic registration
-talos_image_url = "https://factory.talos.dev/image/YOUR-IMAGE-ID/v1.11.5/nocloud-amd64.raw.gz"
+# Use {version} placeholder to automatically substitute talos_version
+talos_image_url = "https://factory.talos.dev/image/YOUR-SCHEMATIC-ID/v{version}/nocloud-amd64.raw.gz"
 EOF
 ```
 

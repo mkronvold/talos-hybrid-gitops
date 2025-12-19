@@ -66,16 +66,23 @@ proxmox_node      = "pve"           # Your Proxmox node name
 proxmox_datastore = "local-lvm"     # Storage for VM disks
 proxmox_bridge    = "vmbr0"         # Network bridge
 
-# Cluster configuration
+# Talos configuration
+talos_version = "1.11.5"
 cluster_name  = "my-cluster"
+
+# Talos image configuration
+# Option 1: Use official Talos ISO (default - leave empty or commented out)
+# talos_image_url = ""
+
+# Option 2: Use Omni Factory image (recommended for Omni-managed clusters)
+# Use {version} placeholder to automatically use the talos_version variable
+# talos_image_url = "https://factory.talos.dev/image/YOUR-SCHEMATIC-ID/v{version}/nocloud-amd64.raw.gz"
+
+# VM configuration
 node_count    = 3
 node_cpu      = 4
 node_memory   = 8192  # MB
 node_disk_size = 100  # GB
-
-# Omni Factory Image (optional, for automatic Omni registration)
-# Leave empty to use standard Talos ISO
-talos_image_url = ""
 ```
 
 ## Deployment
@@ -289,15 +296,17 @@ Add the `talos_image_url` to your `terraform.tfvars`:
 
 ```hcl
 # Use Omni Factory image for automatic registration
-talos_image_url = "https://factory.talos.dev/image/YOUR-IMAGE-ID/v1.11.5/nocloud-amd64.raw.gz"
+# Use {version} placeholder to automatically substitute talos_version
+talos_image_url = "https://factory.talos.dev/image/YOUR-SCHEMATIC-ID/v{version}/nocloud-amd64.raw.gz"
 ```
 
 **Notes**:
 - The image URL is unique to your Omni account and contains embedded credentials
+- Use `{version}` placeholder which will be replaced with the `talos_version` variable value
 - The `.gz` format is supported (automatically decompressed by Proxmox)
 - VMs will use this image as their boot disk instead of an ISO
 - Machines will appear in Omni within 2-5 minutes of boot
-- The image ID in the URL is specific to your Omni configuration
+- The schematic ID in the URL is specific to your Omni configuration
 
 #### Behavior Differences
 

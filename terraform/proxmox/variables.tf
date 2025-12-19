@@ -60,7 +60,7 @@ variable "talos_version" {
 }
 
 variable "talos_image_url" {
-  description = "URL to Talos/Omni Factory image (raw.xz format)"
+  description = "URL to Talos/Omni Factory image (raw.gz format). Use {version} placeholder to auto-substitute talos_version."
   type        = string
   default     = ""
 }
