@@ -214,7 +214,7 @@ deploy_terraform() {
 wait_for_machines() {
     local site_code=$1
     local expected_count=$2
-    local timeout=300
+    local timeout=600
     local elapsed=0
     
     log "Waiting for $expected_count unused ready machines for site $site_code (timeout: ${timeout}s)..."
@@ -334,10 +334,10 @@ main() {
     
     # Get expected node count from terraform output
     local output_file="${PROJECT_ROOT}/clusters/omni/${site_code}-terraform-output.json"
-    local node_count=3
+    local node_count=4
     
     if [[ -f "$output_file" ]]; then
-        node_count=$(jq -r '.omni_registration_info.value.node_count // 3' "$output_file" 2>/dev/null || echo "3")
+        node_count=$(jq -r '.omni_registration_info.value.node_count // 3' "$output_file" 2>/dev/null || echo "4")
     else
         warn "Terraform output file not found, defaulting to $node_count nodes"
     fi
