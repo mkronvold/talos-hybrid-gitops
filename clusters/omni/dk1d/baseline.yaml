@@ -2,7 +2,7 @@
 # Cluster: dk1d-baseline
 # Site: dk1d
 # Environment: development
-# Created: Fri Dec 19 23:14:30 UTC 2025
+# Created: Fri Dec 19 23:20:48 UTC 2025
 
 apiVersion: v1alpha1
 kind: Cluster
@@ -44,44 +44,43 @@ machineClass:
       operator: "In"
       values: ["proxmox"]
 
-# Talos machine configuration patches
 patches:
-    - |
-      machine:
-        install:
-          disk: /dev/sda
-        kubelet:
-          nodeIP:
-            validSubnets:
-              - 0.0.0.0/0  # Use primary interface IP
-          extraArgs:
-            rotate-server-certificates: "true"
-        network:
-          interfaces:
-            - interface: eth0
-              dhcp: true
-        time:
-          servers:
-            - time.cloudflare.com
-            - time.google.com
-      cluster:
-        controllerManager:
-          extraArgs:
-            bind-address: "0.0.0.0"
-        scheduler:
-          extraArgs:
-            bind-address: "0.0.0.0"
-        apiServer:
-          certSANs:
-            - dk1d-baseline.local
-            - dk1d-baseline.example.com
-        proxy:
-          disabled: false
-        discovery:
-          enabled: true
-          registries:
-            service:
-              disabled: false
+  - |
+    machine:
+      install:
+        disk: /dev/sda
+      kubelet:
+        nodeIP:
+          validSubnets:
+            - 0.0.0.0/0  # Use primary interface IP
+        extraArgs:
+          rotate-server-certificates: "true"
+      network:
+        interfaces:
+          - interface: eth0
+            dhcp: true
+      time:
+        servers:
+          - time.cloudflare.com
+          - time.google.com
+    cluster:
+      controllerManager:
+        extraArgs:
+          bind-address: "0.0.0.0"
+      scheduler:
+        extraArgs:
+          bind-address: "0.0.0.0"
+      apiServer:
+        certSANs:
+          - dk1d-baseline.local
+          - dk1d-baseline.example.com
+      proxy:
+        disabled: false
+      discovery:
+        enabled: true
+        registries:
+          service:
+            disabled: false
 
 ---
 # Worker machine set
@@ -105,24 +104,24 @@ machineClass:
       values: ["proxmox"]
 
 patches:
-    - |
-      machine:
-        install:
-          disk: /dev/sda
-        kubelet:
-          nodeIP:
-            validSubnets:
-              - 0.0.0.0/0
-          extraArgs:
-            rotate-server-certificates: "true"
-        network:
-          interfaces:
-            - interface: eth0
-              dhcp: true
-        time:
-          servers:
-            - time.cloudflare.com
-            - time.google.com
+  - |
+    machine:
+      install:
+        disk: /dev/sda
+      kubelet:
+        nodeIP:
+          validSubnets:
+            - 0.0.0.0/0
+        extraArgs:
+          rotate-server-certificates: "true"
+      network:
+        interfaces:
+          - interface: eth0
+            dhcp: true
+      time:
+        servers:
+          - time.cloudflare.com
+          - time.google.com
 
 ---
 # Resource requirements for Terraform

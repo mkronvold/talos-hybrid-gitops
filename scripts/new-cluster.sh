@@ -210,44 +210,43 @@ machineClass:
       operator: "In"
       values: ["${platform}"]
 
-# Talos machine configuration patches
 patches:
-    - |
-      machine:
-        install:
-          disk: /dev/sda
-        kubelet:
-          nodeIP:
-            validSubnets:
-              - 0.0.0.0/0  # Use primary interface IP
-          extraArgs:
-            rotate-server-certificates: "true"
-        network:
-          interfaces:
-            - interface: eth0
-              dhcp: true
-        time:
-          servers:
-            - time.cloudflare.com
-            - time.google.com
-      cluster:
-        controllerManager:
-          extraArgs:
-            bind-address: "0.0.0.0"
-        scheduler:
-          extraArgs:
-            bind-address: "0.0.0.0"
-        apiServer:
-          certSANs:
-            - ${full_cluster_name}.local
-            - ${full_cluster_name}.example.com
-        proxy:
-          disabled: false
-        discovery:
-          enabled: true
-          registries:
-            service:
-              disabled: false
+  - |
+    machine:
+      install:
+        disk: /dev/sda
+      kubelet:
+        nodeIP:
+          validSubnets:
+            - 0.0.0.0/0  # Use primary interface IP
+        extraArgs:
+          rotate-server-certificates: "true"
+      network:
+        interfaces:
+          - interface: eth0
+            dhcp: true
+      time:
+        servers:
+          - time.cloudflare.com
+          - time.google.com
+    cluster:
+      controllerManager:
+        extraArgs:
+          bind-address: "0.0.0.0"
+      scheduler:
+        extraArgs:
+          bind-address: "0.0.0.0"
+      apiServer:
+        certSANs:
+          - ${full_cluster_name}.local
+          - ${full_cluster_name}.example.com
+      proxy:
+        disabled: false
+      discovery:
+        enabled: true
+        registries:
+          service:
+            disabled: false
 
 ---
 # Worker machine set
@@ -271,24 +270,24 @@ machineClass:
       values: ["${platform}"]
 
 patches:
-    - |
-      machine:
-        install:
-          disk: /dev/sda
-        kubelet:
-          nodeIP:
-            validSubnets:
-              - 0.0.0.0/0
-          extraArgs:
-            rotate-server-certificates: "true"
-        network:
-          interfaces:
-            - interface: eth0
-              dhcp: true
-        time:
-          servers:
-            - time.cloudflare.com
-            - time.google.com
+  - |
+    machine:
+      install:
+        disk: /dev/sda
+      kubelet:
+        nodeIP:
+          validSubnets:
+            - 0.0.0.0/0
+        extraArgs:
+          rotate-server-certificates: "true"
+      network:
+        interfaces:
+          - interface: eth0
+            dhcp: true
+      time:
+        servers:
+          - time.cloudflare.com
+          - time.google.com
 
 ---
 # Resource requirements for Terraform
