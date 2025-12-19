@@ -286,6 +286,7 @@ Omni Factory images are custom Talos images built with Omni registration credent
    - Platform: `nocloud` (for virtualization)
    - Format: Look for `.raw.gz` (gzip compressed)
    - **Extensions**: Add `qemu-guest-agent` for better Proxmox integration (optional but recommended)
+   - **Labels**: Add labels to identify the image (e.g., `talos`, `omni`, `qemu-agent`)
 4. **Copy the URL** - it will look like:
    ```
    https://factory.talos.dev/image/073e2259a32ece62abb86b02e24925e3d280da6300e9353c412a27be33658d38/v1.11.5/nocloud-amd64.raw.gz

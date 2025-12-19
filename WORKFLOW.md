@@ -237,8 +237,10 @@ source ~/omni.sh
 # Get Omni Factory Image URL
 # 1. Log into your Omni web interface
 # 2. Navigate to: Settings → Download Installation Media
-# 3. Select: nocloud format, amd64 architecture
-# 4. Copy the URL ending in .raw.gz
+# 3. Select: nocloud format, amd64 architecture, .raw.gz format
+# 4. Extensions: Add qemu-guest-agent (optional but recommended for Proxmox)
+# 5. Labels: Add identifying labels (e.g., talos, omni, qemu-agent)
+# 6. Copy the URL
 # Example: https://factory.talos.dev/image/YOUR-ID/v1.11.5/nocloud-amd64.raw.gz
 ```
 
