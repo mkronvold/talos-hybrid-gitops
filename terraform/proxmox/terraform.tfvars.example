@@ -29,7 +29,10 @@ cluster_name  = "dev-proxmox"
 # Option 2: Use Omni Factory image (recommended for Omni-managed clusters)
 # Download your factory image from: https://factory.talos.dev/
 # Use {version} placeholder to automatically use the talos_version variable
-# talos_image_url = "https://factory.talos.dev/image/0f70c92e3edfe2374cd4706e4346a2688771e8a7c668167e8f038e393f5b0ab3/v{version}/nocloud-amd64.raw.gz"
+# Use {factory_id} placeholder to use the talos_factory_id variable
+talos_factory_id = "723ca318564987bcb1c018e441dfd0750c6162db0dee340d9761053f376c2c3c"
+talos_image_url = "https://factory.talos.dev/image/{factory_id}/v{version}/nocloud-amd64.raw.gz"
+
 
 # VM configuration
 vm_id_start    = 8000

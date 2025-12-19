@@ -1,8 +1,8 @@
 # Copy this file to terraform.tfvars and fill in your values
 
 # Proxmox credentials
-proxmox_endpoint = "https://proxmox1.damocles.com:8006"
-proxmox_insecure = true  # Set to false with valid SSL cert
+proxmox_endpoint = "https://proxmox1:8006"
+proxmox_insecure = true # Set to false with valid SSL cert
 
 # Authentication - Use EITHER api_token (recommended) OR username/password
 # Option 1: API Token (recommended for automation)
@@ -13,25 +13,28 @@ proxmox_api_token = "root@pam!terraform=7143ecda-75d6-4c68-8399-e787792c127f"
 # proxmox_password = "your-password"
 
 # Proxmox resources
-proxmox_node        = "proxmox1"
-proxmox_datastore   = "zfs"         # For VM disks (ZFS pool)
-proxmox_iso_storage = "local"       # For ISO files (file-based storage)
-proxmox_bridge      = "vmbr0"
-proxmox_ssh_username = "root"       # SSH user for Proxmox host
-proxmox_ssh_private_key_file = "~/.ssh/id_rsa"  # Path to SSH private key file for Proxmox host
+proxmox_node      = "proxmox1"
+proxmox_datastore = "zfs"
+proxmox_bridge    = "vmbr0"
 
 # Talos configuration
-cluster_name  = "pb"
 talos_version = "1.11.5"
+cluster_name  = "pb"
+
+# Talos image configuration
+# Option 1: Use official Talos ISO (default - leave talos_image_url empty or commented out)
+# talos_image_url = ""
+
+# Option 2: Use Omni Factory image (recommended for Omni-managed clusters)
+# Download your factory image from: https://factory.talos.dev/
 # Use {version} placeholder to automatically use the talos_version variable
 # Use {factory_id} placeholder to use the talos_factory_id variable
 talos_factory_id = "723ca318564987bcb1c018e441dfd0750c6162db0dee340d9761053f376c2c3c"
 talos_image_url = "https://factory.talos.dev/image/{factory_id}/v{version}/nocloud-amd64.raw.gz"
 
-
 # VM configuration
 vm_id_start    = 8000
-node_count     = 4  # For dev cluster
+node_count     = 4 # For dev cluster
 node_cpu       = 2
 node_memory    = 4096
 node_disk_size = 50

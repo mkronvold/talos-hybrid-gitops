@@ -78,8 +78,14 @@ variable "talos_version" {
   default     = "1.9.5"
 }
 
+variable "talos_factory_id" {
+  description = "Talos Factory ID String for factory image download"
+  type        = string
+  default     = "NO_DEFAULT_FACTORY_ID"
+}
+
 variable "talos_image_url" {
-  description = "URL to Talos/Omni Factory image (raw.gz format). Use {version} placeholder to auto-substitute talos_version."
+  description = "URL to Talos/NoCloud Omni Factory image (raw.gz format). Use {version} placeholder to auto-substitute talos_version. Use {factory_id} placeholder to use the talos_factory_id"
   type        = string
   default     = ""
 }
