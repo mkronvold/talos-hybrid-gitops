@@ -17,14 +17,15 @@ provider "proxmox" {
   insecure  = var.proxmox_insecure
   
   ssh {
-    agent = true
+    agent    = true
+    username = var.proxmox_ssh_username
   }
 }
 
 # Download Talos/Omni image to Proxmox
 resource "proxmox_virtual_environment_download_file" "talos_image" {
   content_type       = "iso"
-  datastore_id       = var.proxmox_datastore
+  datastore_id       = var.proxmox_iso_storage
   node_name          = var.proxmox_node
   url                = var.talos_image_url != "" ? replace(var.talos_image_url, "{version}", var.talos_version) : "https://github.com/siderolabs/talos/releases/download/v${var.talos_version}/metal-amd64.iso"
   file_name          = var.talos_image_url != "" ? "talos-omni-${var.cluster_name}.img" : null

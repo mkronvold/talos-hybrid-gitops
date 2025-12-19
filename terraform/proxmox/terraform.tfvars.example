@@ -16,6 +16,7 @@ proxmox_api_token = "root@pam!terraform=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 proxmox_node      = "pve"
 proxmox_datastore = "local-lvm"
 proxmox_bridge    = "vmbr0"
+proxmox_ssh_username = "root"  # SSH user for Proxmox host
 
 # Talos configuration
 talos_version = "1.11.5"

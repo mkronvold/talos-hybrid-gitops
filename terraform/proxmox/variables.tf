@@ -53,6 +53,12 @@ variable "proxmox_bridge" {
   default     = "vmbr0"
 }
 
+variable "proxmox_ssh_username" {
+  description = "SSH username for Proxmox host (e.g., root)"
+  type        = string
+  default     = "root"
+}
+
 variable "talos_version" {
   description = "Talos version to download"
   type        = string
