@@ -12,9 +12,14 @@ terraform {
 provider "proxmox" {
   endpoint  = var.proxmox_endpoint
   api_token = var.proxmox_api_token != "" ? var.proxmox_api_token : null
-  username  = var.proxmox_api_token == "" ? var.proxmox_username : null
+  username  = var.proxmox_api_token == "" ? var.proxmox_username : root
   password  = var.proxmox_api_token == "" ? var.proxmox_password : null
   insecure  = true  # Hardcoded to bypass SSL verification issues
+
+  ssh {
+    agent    = true
+    username = "root"  # SSH username for Proxmox host
+  }
 }
 
 # Cloud-init user data
