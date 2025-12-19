@@ -18,6 +18,7 @@ proxmox_datastore   = "zfs"         # For VM disks (ZFS pool)
 proxmox_iso_storage = "local"       # For ISO files (file-based storage)
 proxmox_bridge      = "vmbr0"
 proxmox_ssh_username = "root"       # SSH user for Proxmox host
+proxmox_ssh_private_key_file = "~/.ssh/id_rsa"  # Path to SSH private key file for Proxmox host
 
 # Talos configuration
 talos_version = "1.11.5"

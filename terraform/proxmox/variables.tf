@@ -59,6 +59,19 @@ variable "proxmox_ssh_username" {
   default     = "root"
 }
 
+variable "proxmox_ssh_private_key_file" {
+  description = "Path to SSH private key file for Proxmox host"
+  type        = string
+  default     = ""
+}
+
+variable "proxmox_ssh_private_key" {
+  description = "SSH private key content for Proxmox host authentication (leave empty to use proxmox_ssh_private_key_file)"
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "talos_version" {
   description = "Talos version to download"
   type        = string
