@@ -10,7 +10,8 @@ terraform {
 }
 
 locals {
-  ssh_private_key = var.proxmox_ssh_private_key_file != "" ? file(var.proxmox_ssh_private_key_file) : var.proxmox_ssh_private_key
+  # Workaround for Terraform v1.6.0 bug with sensitive values in conditionals
+  ssh_private_key = var.proxmox_ssh_private_key_file != "" ? file(var.proxmox_ssh_private_key_file) : nonsensitive(var.proxmox_ssh_private_key)
 }
 
 provider "proxmox" {
