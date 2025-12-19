@@ -72,6 +72,10 @@ node_count    = 3
 node_cpu      = 4
 node_memory   = 8192  # MB
 node_disk_size = 100  # GB
+
+# Omni Factory Image (optional, for automatic Omni registration)
+# Leave empty to use standard Talos ISO
+talos_image_url = ""
 ```
 
 ## Deployment
@@ -109,10 +113,10 @@ terraform output
 ## What Gets Created
 
 - **VMs**: Number specified in `node_count`
-- **Talos ISO**: Downloaded to Proxmox automatically
+- **Talos Image**: Downloaded to Proxmox automatically (ISO or disk image)
 - **Network**: VMs connected to specified bridge
 - **Storage**: Disks created on specified datastore
-- **Boot**: VMs configured to boot from Talos ISO
+- **Boot**: VMs configured to boot from Talos image
 
 ## VM Details
 
@@ -251,6 +255,64 @@ node_cpu       = 2      # CPU cores
 node_memory    = 4096   # 4GB RAM
 node_disk_size = 50     # 50GB disk
 ```
+
+### Using Omni Factory Images
+
+**Important**: For automatic Omni registration, use an Omni Factory image instead of the standard Talos ISO.
+
+#### What is an Omni Factory Image?
+
+Omni Factory images are custom Talos images built with Omni registration credentials embedded. When VMs boot from these images, they automatically connect to your Omni instance without manual configuration.
+
+**Key differences**:
+- **Standard Talos ISO**: Generic Talos that boots into maintenance mode - requires manual configuration
+- **Omni Factory Image**: Pre-configured with Omni endpoint and credentials - auto-registers with Omni
+
+#### Getting Your Omni Factory Image URL
+
+1. **Log into your Omni web interface** (e.g., `https://damocles.na-west-1.omni.siderolabs.io`)
+2. **Navigate to Download Installation Media**:
+   - Settings → Download Installation Media
+   - Or Cluster Setup → Add Machines
+3. **Select the nocloud format**:
+   - Architecture: `amd64`
+   - Platform: `nocloud` (for virtualization)
+   - Format: Look for `.raw.gz` (gzip compressed)
+4. **Copy the URL** - it will look like:
+   ```
+   https://factory.talos.dev/image/073e2259a32ece62abb86b02e24925e3d280da6300e9353c412a27be33658d38/v1.11.5/nocloud-amd64.raw.gz
+   ```
+
+#### Configure Terraform to Use Omni Image
+
+Add the `talos_image_url` to your `terraform.tfvars`:
+
+```hcl
+# Use Omni Factory image for automatic registration
+talos_image_url = "https://factory.talos.dev/image/YOUR-IMAGE-ID/v1.11.5/nocloud-amd64.raw.gz"
+```
+
+**Notes**:
+- The image URL is unique to your Omni account and contains embedded credentials
+- The `.gz` format is supported (automatically decompressed by Proxmox)
+- VMs will use this image as their boot disk instead of an ISO
+- Machines will appear in Omni within 2-5 minutes of boot
+- The image ID in the URL is specific to your Omni configuration
+
+#### Behavior Differences
+
+**With Standard ISO** (`talos_image_url = ""`):
+1. VM boots from Talos ISO in CD-ROM drive
+2. Talos runs in maintenance mode
+3. Requires manual `talosctl` configuration or Omni manual registration
+4. Boot order: scsi0 (empty disk), then ide0 (ISO)
+
+**With Omni Factory Image** (`talos_image_url` set):
+1. VM boots directly from pre-installed disk image
+2. Talos auto-connects to Omni endpoint
+3. Machine appears in Omni automatically
+4. Ready for cluster assignment
+5. Boot order: scsi0 (Omni image disk)
 
 ## References
 
