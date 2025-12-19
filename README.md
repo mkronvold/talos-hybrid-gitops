@@ -106,7 +106,18 @@ brew install terraform fluxcd/tap/flux
    # Or add to ~/.bashrc for persistence
    ```
 
-4. **Deploy infrastructure:**
+4. **Get Omni Factory image URL (for Proxmox):**
+   ```bash
+   # Log into your Omni web interface
+   # Navigate to: Settings → Download Installation Media
+   # Select: nocloud format, amd64 architecture, .raw.gz format
+   # Copy the URL and add to terraform.tfvars:
+   talos_image_url = "https://factory.talos.dev/image/YOUR-ID/v1.11.5/nocloud-amd64.raw.gz"
+   ```
+   
+   **Why Omni Factory images?** Standard Talos ISOs don't know about Omni. Factory images have your Omni credentials embedded so VMs auto-register on boot.
+
+5. **Deploy infrastructure:**
    ```bash
    ./scripts/deploy-infrastructure.sh <site-code> clusters/omni/<site-code>/<cluster>.yaml
    ```
