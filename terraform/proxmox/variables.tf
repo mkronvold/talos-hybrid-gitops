@@ -59,6 +59,12 @@ variable "talos_version" {
   default     = "1.9.5"
 }
 
+variable "talos_image_url" {
+  description = "URL to Talos/Omni Factory image (raw.xz format)"
+  type        = string
+  default     = ""
+}
+
 variable "cluster_name" {
   description = "Name of the Talos cluster"
   type        = string
