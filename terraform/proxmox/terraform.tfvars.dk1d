@@ -1,7 +1,7 @@
 # Copy this file to terraform.tfvars and fill in your values
 
 # Proxmox credentials
-proxmox_endpoint = "https://proxmox1:8006"
+proxmox_endpoint = "https://proxmox1.damocles.com:8006"
 proxmox_insecure = true  # Set to false with valid SSL cert
 
 # Authentication - Use EITHER api_token (recommended) OR username/password
@@ -13,9 +13,10 @@ proxmox_api_token = "root@pam!terraform=7143ecda-75d6-4c68-8399-e787792c127f"
 # proxmox_password = "your-password"
 
 # Proxmox resources
-proxmox_node      = "proxmox1"
-proxmox_datastore = "zfs"
-proxmox_bridge    = "vmbr0"
+proxmox_node        = "proxmox1"
+proxmox_datastore   = "zfs"         # For VM disks (ZFS pool)
+proxmox_iso_storage = "local"       # For ISO files (file-based storage)
+proxmox_bridge      = "vmbr0"
 
 # Talos configuration
 talos_version = "1.9.5"
@@ -23,7 +24,7 @@ cluster_name  = "pb"
 
 # VM configuration
 vm_id_start    = 8000
-node_count     = 3  # For dev cluster
+node_count     = 4  # For dev cluster
 node_cpu       = 2
 node_memory    = 4096
 node_disk_size = 50
