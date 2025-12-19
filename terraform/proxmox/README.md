@@ -75,8 +75,10 @@ cluster_name  = "my-cluster"
 # talos_image_url = ""
 
 # Option 2: Use Omni Factory image (recommended for Omni-managed clusters)
+# Use {factory_id} placeholder to use the talos_factory_id
 # Use {version} placeholder to automatically use the talos_version variable
-# talos_image_url = "https://factory.talos.dev/image/YOUR-SCHEMATIC-ID/v{version}/nocloud-amd64.raw.gz"
+# talos_factory_id = "NO DEFAULT"
+# talos_image_url = "https://factory.talos.dev/image/{factory_id}/v{version}/nocloud-amd64.raw.gz"
 
 # VM configuration
 node_count    = 3

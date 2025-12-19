@@ -1,6 +1,6 @@
 terraform {
   required_version = ">= 1.5"
-  
+
   required_providers {
     proxmox = {
       source  = "bpg/proxmox"
@@ -9,27 +9,34 @@ terraform {
   }
 }
 
+locals {
+  # Workaround for Terraform v1.6.0 bug with sensitive values in conditionals
+  ssh_private_key = var.proxmox_ssh_private_key_file != "" ? file(var.proxmox_ssh_private_key_file) : nonsensitive(var.proxmox_ssh_private_key)
+}
+
 provider "proxmox" {
   endpoint  = var.proxmox_endpoint
   api_token = var.proxmox_api_token
   username  = var.proxmox_username
   password  = var.proxmox_password
   insecure  = var.proxmox_insecure
-  
+
   ssh {
-    agent = true
+    agent       = false
+    username    = var.proxmox_ssh_username
+    private_key = local.ssh_private_key
   }
 }
 
 # Download Talos/Omni image to Proxmox
 resource "proxmox_virtual_environment_download_file" "talos_image" {
-  content_type       = "iso"
-  datastore_id       = var.proxmox_datastore
-  node_name          = var.proxmox_node
-  url                = var.talos_image_url != "" ? replace(var.talos_image_url, "{version}", var.talos_version) : "https://github.com/siderolabs/talos/releases/download/v${var.talos_version}/metal-amd64.iso"
-  file_name          = var.talos_image_url != "" ? "talos-omni-${var.cluster_name}.img" : null
+  content_type            = "iso"
+  datastore_id            = var.proxmox_iso_storage
+  node_name               = var.proxmox_node
+  url                     = var.talos_image_url != "" ? replace(replace(var.talos_image_url, "{version}", var.talos_version), "{factory_id}", var.talos_factory_id) : "https://github.com/siderolabs/talos/releases/download/v${var.talos_version}/metal-amd64.iso"
+  file_name               = var.talos_image_url != "" ? "talos-omni-${var.cluster_name}.img" : null
   decompression_algorithm = var.talos_image_url != "" ? "gz" : null
-  
+
   # Only download if not already present
   lifecycle {
     ignore_changes = [url]
@@ -85,7 +92,7 @@ resource "proxmox_virtual_environment_vm" "talos_node" {
 
   # BIOS and boot configuration
   bios = "ovmf"
-  
+
   efi_disk {
     datastore_id = var.proxmox_datastore
     file_format  = "raw"
@@ -96,7 +103,7 @@ resource "proxmox_virtual_environment_vm" "talos_node" {
 
   # Agent configuration
   agent {
-    enabled = false  # Talos doesn't use QEMU agent
+    enabled = false # Talos doesn't use QEMU agent
   }
 
   # Start VM after creation
@@ -105,7 +112,7 @@ resource "proxmox_virtual_environment_vm" "talos_node" {
   # Prevent Proxmox from managing some settings
   lifecycle {
     ignore_changes = [
-      network_device,  # Omni will manage network config
+      network_device, # Omni will manage network config
     ]
   }
 }

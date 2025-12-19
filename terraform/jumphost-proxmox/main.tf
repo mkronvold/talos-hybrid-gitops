@@ -9,12 +9,24 @@ terraform {
   }
 }
 
+locals {
+  # Workaround for Terraform v1.6.0 bug with sensitive values in conditionals
+  api_token = var.proxmox_api_token != "" ? nonsensitive(var.proxmox_api_token) : null
+  username  = var.proxmox_api_token == "" ? nonsensitive(var.proxmox_username) : null
+  password  = var.proxmox_api_token == "" ? nonsensitive(var.proxmox_password) : null
+}
+
 provider "proxmox" {
   endpoint  = var.proxmox_endpoint
-  api_token = var.proxmox_api_token != "" ? var.proxmox_api_token : null
-  username  = var.proxmox_api_token == "" ? var.proxmox_username : null
-  password  = var.proxmox_api_token == "" ? var.proxmox_password : null
+  api_token = local.api_token
+  username  = local.username
+  password  = local.password
   insecure  = true  # Hardcoded to bypass SSL verification issues
+
+  ssh {
+    agent    = true
+    username = "root"  # SSH username for Proxmox host
+  }
 }
 
 # Cloud-init user data

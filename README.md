@@ -112,6 +112,7 @@ brew install terraform fluxcd/tap/flux
    # Navigate to: Settings → Download Installation Media
    # Select: nocloud format, amd64 architecture, .raw.gz format
    # Extensions: Add qemu-guest-agent (optional but recommended for Proxmox)
+   # Labels: Add identifying labels (e.g., talos, omni, qemu-agent)
    # Copy the URL and add to terraform.tfvars:
    # Use {version} placeholder to automatically use talos_version variable
    talos_image_url = "https://factory.talos.dev/image/YOUR-SCHEMATIC-ID/v{version}/nocloud-amd64.raw.gz"

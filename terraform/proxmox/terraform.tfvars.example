@@ -16,6 +16,7 @@ proxmox_api_token = "root@pam!terraform=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 proxmox_node      = "pve"
 proxmox_datastore = "local-lvm"
 proxmox_bridge    = "vmbr0"
+proxmox_ssh_username = "root"  # SSH user for Proxmox host
 
 # Talos configuration
 talos_version = "1.11.5"
@@ -28,7 +29,10 @@ cluster_name  = "dev-proxmox"
 # Option 2: Use Omni Factory image (recommended for Omni-managed clusters)
 # Download your factory image from: https://factory.talos.dev/
 # Use {version} placeholder to automatically use the talos_version variable
-# talos_image_url = "https://pxe.factory.talos.dev/pxe/YOUR-SCHEMATIC-ID/{version}/nocloud-amd64.raw.gz"
+# Use {factory_id} placeholder to use the talos_factory_id variable
+talos_factory_id = "723ca318564987bcb1c018e441dfd0750c6162db0dee340d9761053f376c2c3c"
+talos_image_url = "https://factory.talos.dev/image/{factory_id}/v{version}/nocloud-amd64.raw.gz"
+
 
 # VM configuration
 vm_id_start    = 8000

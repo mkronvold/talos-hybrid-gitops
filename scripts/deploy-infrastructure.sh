@@ -214,17 +214,25 @@ deploy_terraform() {
 wait_for_machines() {
     local site_code=$1
     local expected_count=$2
-    local timeout=300
+    local timeout=600
     local elapsed=0
     
-    log "Waiting for $site_code machines to register with Omni (timeout: ${timeout}s)..."
+    log "Waiting for $expected_count unused ready machines for site $site_code (timeout: ${timeout}s)..."
     
     while [[ $elapsed -lt $timeout ]]; do
-        # Count total machines (could filter by labels in future)
-        local count=$(omnictl get machines --quiet 2>/dev/null | wc -l)
+        # Count ready machines that are:
+        # 1. Available (ready-to-use label present)
+        # 2. Not assigned to a cluster
+        # 3. Optionally match site label if present
+        local count=$(omnictl get machinestatus -o json 2>/dev/null | jq -s '
+            [.[] | select(
+                (.metadata.labels | has("omni.sidero.dev/ready-to-use")) and
+                .spec.cluster == ""
+            )] | length
+        ' 2>/dev/null || echo "0")
         
         if [[ $count -ge $expected_count ]]; then
-            log "At least $expected_count machines registered with Omni"
+            log "✓ Found $count unused ready machines (need $expected_count)"
             return 0
         fi
         
@@ -235,6 +243,7 @@ wait_for_machines() {
     
     error "Timeout waiting for machines to register"
     warn "Check that VMs can reach $OMNI_ENDPOINT"
+    warn "Current unused ready machines: $(omnictl get machinestatus -o json 2>/dev/null | jq -s '[.[] | select((.metadata.labels | has("omni.sidero.dev/ready-to-use")) and .spec.cluster == "")] | length' 2>/dev/null || echo "0")"
     return 1
 }
 
@@ -324,12 +333,16 @@ main() {
     warn "Make sure VMs can reach ${OMNI_ENDPOINT}"
     
     # Get expected node count from terraform output
-    local terraform_dir="${PROJECT_ROOT}/terraform/${platform}"
-    cd "$terraform_dir"
-    local node_count=$(terraform output -json 2>/dev/null | jq -r '.node_count.value // 3' || echo "3")
-    cd "$PROJECT_ROOT"
+    local output_file="${PROJECT_ROOT}/clusters/omni/${site_code}-terraform-output.json"
+    local node_count=4
     
-    info "Expecting $node_count machines to register"
+    if [[ -f "$output_file" ]]; then
+        node_count=$(jq -r '.omni_registration_info.value.node_count // 3' "$output_file" 2>/dev/null || echo "4")
+    else
+        warn "Terraform output file not found, defaulting to $node_count nodes"
+    fi
+    
+    info "Expecting $node_count unused ready machines for $site_code"
     wait_for_machines "$site_code" "$node_count" || {
         warn "Not all machines registered, but continuing..."
     }

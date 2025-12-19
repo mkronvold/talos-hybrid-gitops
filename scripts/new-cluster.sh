@@ -172,129 +172,122 @@ create_cluster_yaml() {
 
 apiVersion: v1alpha1
 kind: Cluster
-metadata:
-  name: ${full_cluster_name}
-  labels:
-    site: ${site_code}
-    environment: ${environment}
-    platform: ${platform}
-    cluster: ${cluster_name}
-spec:
-  kubernetes:
-    version: ${k8s_version}
-  talos:
-    version: ${talos_version}
-  features:
-    enableWorkloadProxy: true
-    diskEncryption: false
-    useEmbeddedDiscoveryService: true
+name: ${full_cluster_name}
+labels:
+  site: ${site_code}
+  environment: ${environment}
+  platform: ${platform}
+  cluster: ${cluster_name}
+kubernetes:
+  version: ${k8s_version}
+talos:
+  version: ${talos_version}
+features:
+  enableWorkloadProxy: true
+  diskEncryption: false
+  useEmbeddedDiscoveryService: true
 
 ---
 # Control plane machine set
 apiVersion: v1alpha1
 kind: MachineSet
-metadata:
-  name: ${full_cluster_name}-control-planes
-spec:
-  cluster: ${full_cluster_name}
-  machineClass:
-    name: control-plane
-    machineCount: ${control_planes}
-    
-    # Machine allocation strategy
-    allocationStrategy:
-      type: static  # Manually assign machines via Omni UI or labels
-    
-    # Machine requirements
-    requirements:
-      - key: "site"
-        operator: "In"
-        values: ["${site_code}"]
-      - key: "platform"
-        operator: "In"
-        values: ["${platform}"]
+name: ${full_cluster_name}-control-planes
+cluster: ${full_cluster_name}
+machineClass:
+  name: control-plane
+  machineCount: ${control_planes}
   
-  # Talos machine configuration patches
-  patches:
-    - |
-      machine:
-        install:
-          disk: /dev/sda
-        kubelet:
-          nodeIP:
-            validSubnets:
-              - 0.0.0.0/0  # Use primary interface IP
-          extraArgs:
-            rotate-server-certificates: "true"
-        network:
-          interfaces:
-            - interface: eth0
-              dhcp: true
-        time:
-          servers:
-            - time.cloudflare.com
-            - time.google.com
-      cluster:
-        controllerManager:
-          extraArgs:
-            bind-address: "0.0.0.0"
-        scheduler:
-          extraArgs:
-            bind-address: "0.0.0.0"
-        apiServer:
-          certSANs:
-            - ${full_cluster_name}.local
-            - ${full_cluster_name}.example.com
-        proxy:
-          disabled: false
-        discovery:
-          enabled: true
-          registries:
-            service:
-              disabled: false
+  # Machine allocation strategy
+  allocationStrategy:
+    type: static  # Manually assign machines via Omni UI or labels
+  
+  # Machine requirements
+  requirements:
+    - key: "site"
+      operator: "In"
+      values: ["${site_code}"]
+    - key: "platform"
+      operator: "In"
+      values: ["${platform}"]
+
+patches:
+  - |
+    machine:
+      install:
+        disk: /dev/sda
+      kubelet:
+        nodeIP:
+          validSubnets:
+            - 0.0.0.0/0  # Use primary interface IP
+        extraArgs:
+          rotate-server-certificates: "true"
+      network:
+        interfaces:
+          - interface: eth0
+            dhcp: true
+      time:
+        servers:
+          - time.cloudflare.com
+          - time.google.com
+    cluster:
+      controllerManager:
+        extraArgs:
+          bind-address: "0.0.0.0"
+      scheduler:
+        extraArgs:
+          bind-address: "0.0.0.0"
+      apiServer:
+        certSANs:
+          - ${full_cluster_name}.local
+          - ${full_cluster_name}.example.com
+      proxy:
+        disabled: false
+      discovery:
+        enabled: true
+        registries:
+          service:
+            disabled: false
 
 ---
 # Worker machine set
 apiVersion: v1alpha1
 kind: MachineSet
-metadata:
-  name: ${full_cluster_name}-workers
-spec:
-  cluster: ${full_cluster_name}
-  machineClass:
-    name: worker
-    machineCount: ${workers}
-    
-    allocationStrategy:
-      type: static
-    
-    requirements:
-      - key: "site"
-        operator: "In"
-        values: ["${site_code}"]
-      - key: "platform"
-        operator: "In"
-        values: ["${platform}"]
+name: ${full_cluster_name}-workers
+cluster: ${full_cluster_name}
+machineClass:
+  name: worker
+  machineCount: ${workers}
   
-  patches:
-    - |
-      machine:
-        install:
-          disk: /dev/sda
-        kubelet:
-          nodeIP:
-            validSubnets:
-              - 0.0.0.0/0
-          extraArgs:
-            rotate-server-certificates: "true"
-        network:
-          interfaces:
-            - interface: eth0
-              dhcp: true
-        time:
-          servers:
-            - time.cloudflare.com
-            - time.google.com
+  allocationStrategy:
+    type: static
+  
+  requirements:
+    - key: "site"
+      operator: "In"
+      values: ["${site_code}"]
+    - key: "platform"
+      operator: "In"
+      values: ["${platform}"]
+
+patches:
+  - |
+    machine:
+      install:
+        disk: /dev/sda
+      kubelet:
+        nodeIP:
+          validSubnets:
+            - 0.0.0.0/0
+        extraArgs:
+          rotate-server-certificates: "true"
+      network:
+        interfaces:
+          - interface: eth0
+            dhcp: true
+      time:
+        servers:
+          - time.cloudflare.com
+          - time.google.com
 
 ---
 # Resource requirements for Terraform
