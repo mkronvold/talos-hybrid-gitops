@@ -20,7 +20,7 @@ proxmox_bridge      = "vmbr0"
 
 # Talos configuration
 talos_version = "1.11.5"
-talos_image_url = "https://pxe.factory.talos.dev/pxe/968f8de53498d75c2fe2c5e27424b364958d5a48585b79f7de8a24977bd3b4a9/{version}/nocloud-amd64.raw.gz"
+talos_image_url = "https://factory.talos.dev/image/0f70c92e3edfe2374cd4706e4346a2688771e8a7c668167e8f038e393f5b0ab3/v{version}/nocloud-amd64.raw.gz"
 cluster_name  = "pb"
 
 # VM configuration
