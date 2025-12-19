@@ -21,12 +21,14 @@ provider "proxmox" {
   }
 }
 
-# Download Talos ISO to Proxmox if needed
-resource "proxmox_virtual_environment_download_file" "talos_iso" {
-  content_type = "iso"
-  datastore_id = var.proxmox_iso_storage
-  node_name    = var.proxmox_node
-  url          = "https://github.com/siderolabs/talos/releases/download/v${var.talos_version}/metal-amd64.iso"
+# Download Talos/Omni image to Proxmox
+resource "proxmox_virtual_environment_download_file" "talos_image" {
+  content_type       = "iso"
+  datastore_id       = var.proxmox_datastore
+  node_name          = var.proxmox_node
+  url                = var.talos_image_url != "" ? var.talos_image_url : "https://github.com/siderolabs/talos/releases/download/v${var.talos_version}/metal-amd64.iso"
+  file_name          = var.talos_image_url != "" ? "talos-omni-${var.cluster_name}.img" : null
+  decompression_algorithm = var.talos_image_url != "" ? "gz" : null
   
   # Only download if not already present
   lifecycle {
@@ -43,10 +45,13 @@ resource "proxmox_virtual_environment_vm" "talos_node" {
   node_name   = var.proxmox_node
   vm_id       = var.vm_id_start + count.index
 
-  # Boot from Talos ISO
-  cdrom {
-    file_id   = proxmox_virtual_environment_download_file.talos_iso.id
-    interface = "ide0"
+  # Boot from Talos image (ISO or disk image)
+  dynamic "cdrom" {
+    for_each = var.talos_image_url == "" ? [1] : []
+    content {
+      file_id   = proxmox_virtual_environment_download_file.talos_image.id
+      interface = "ide0"
+    }
   }
 
   # CPU configuration
@@ -73,6 +78,7 @@ resource "proxmox_virtual_environment_vm" "talos_node" {
     interface    = "scsi0"
     size         = var.node_disk_size
     file_format  = "raw"
+    file_id      = var.talos_image_url != "" ? proxmox_virtual_environment_download_file.talos_image.id : null
     discard      = "on"
     ssd          = true
   }
