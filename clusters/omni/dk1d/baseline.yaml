@@ -2,54 +2,50 @@
 # Cluster: dk1d-baseline
 # Site: dk1d
 # Environment: development
-# Created: Wed Dec 17 03:04:15 UTC 2025
+# Created: Fri Dec 19 23:14:30 UTC 2025
 
 apiVersion: v1alpha1
 kind: Cluster
-metadata:
-  name: dk1d-baseline
-  labels:
-    site: dk1d
-    environment: development
-    platform: proxmox
-    cluster: baseline
-spec:
-  kubernetes:
-    version: v1.29.0
-  talos:
-    version: v1.9.5
-  features:
-    enableWorkloadProxy: true
-    diskEncryption: false
-    useEmbeddedDiscoveryService: true
+name: dk1d-baseline
+labels:
+  site: dk1d
+  environment: development
+  platform: proxmox
+  cluster: baseline
+kubernetes:
+  version: v1.29.0
+talos:
+  version: v1.9.5
+features:
+  enableWorkloadProxy: true
+  diskEncryption: false
+  useEmbeddedDiscoveryService: true
 
 ---
 # Control plane machine set
 apiVersion: v1alpha1
 kind: MachineSet
-metadata:
-  name: dk1d-baseline-control-planes
-spec:
-  cluster: dk1d-baseline
-  machineClass:
-    name: control-plane
-    machineCount: 1
-    
-    # Machine allocation strategy
-    allocationStrategy:
-      type: static  # Manually assign machines via Omni UI or labels
-    
-    # Machine requirements
-    requirements:
-      - key: "site"
-        operator: "In"
-        values: ["dk1d"]
-      - key: "platform"
-        operator: "In"
-        values: ["proxmox"]
+name: dk1d-baseline-control-planes
+cluster: dk1d-baseline
+machineClass:
+  name: control-plane
+  machineCount: 1
   
-  # Talos machine configuration patches
-  patches:
+  # Machine allocation strategy
+  allocationStrategy:
+    type: static  # Manually assign machines via Omni UI or labels
+  
+  # Machine requirements
+  requirements:
+    - key: "site"
+      operator: "In"
+      values: ["dk1d"]
+    - key: "platform"
+      operator: "In"
+      values: ["proxmox"]
+
+# Talos machine configuration patches
+patches:
     - |
       machine:
         install:
@@ -91,26 +87,24 @@ spec:
 # Worker machine set
 apiVersion: v1alpha1
 kind: MachineSet
-metadata:
-  name: dk1d-baseline-workers
-spec:
-  cluster: dk1d-baseline
-  machineClass:
-    name: worker
-    machineCount: 3
-    
-    allocationStrategy:
-      type: static
-    
-    requirements:
-      - key: "site"
-        operator: "In"
-        values: ["dk1d"]
-      - key: "platform"
-        operator: "In"
-        values: ["proxmox"]
+name: dk1d-baseline-workers
+cluster: dk1d-baseline
+machineClass:
+  name: worker
+  machineCount: 3
   
-  patches:
+  allocationStrategy:
+    type: static
+  
+  requirements:
+    - key: "site"
+      operator: "In"
+      values: ["dk1d"]
+    - key: "platform"
+      operator: "In"
+      values: ["proxmox"]
+
+patches:
     - |
       machine:
         install:
