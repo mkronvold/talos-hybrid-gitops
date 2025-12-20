@@ -1,8 +1,9 @@
 # Size class definitions for cluster node sizing
 # Format: size_class,max_cpu,max_memory_mb,description
 # Auto-detection uses these thresholds in order
-tiny,1,2048,Minimal nodes for testing or edge deployments
-small,2,4096,Light workload nodes
-medium,4,8192,Standard workload nodes
-large,8,16384,Heavy workload nodes
-xlarge,999,999999,Maximum capacity nodes (no upper limit)
+tiny,1,4096,Minimal nodes for testing or edge deployments
+small,2,8192,Light workload nodes
+medium,4,16384,Standard workload nodes
+large,8,32768,Moderate workload nodes
+xlarge,16,65536,Heavy workload nodes
+huge,999,999999,Maximum capacity nodes (no upper limit)

@@ -31,7 +31,7 @@ talos_image_url = "https://factory.talos.dev/image/{factory_id}/v{version}/noclo
 
 # VM configuration
 vm_id_start    = 8000
-node_count     = 4  # For dev cluster
+node_count     = 4
 node_cpu       = 2
 node_memory    = 4096
 node_disk_size = 50
