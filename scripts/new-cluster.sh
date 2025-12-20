@@ -67,11 +67,14 @@ ${GREEN}Options:${NC}
   --disk <gb>            Disk size in GB per node (default: 50)
   --k8s-version <ver>    Kubernetes version (default: v1.32.0)
   --talos-version <ver>  Talos version (default: v1.11.5)
-  --update-tfvars        Update terraform.tfvars.{site} with node values
+  --update-tfvars        Update terraform.tfvars.{site} with accumulated totals
   --help                 Show this help message
 
 ${GREEN}Note:${NC}
   Platform is automatically detected from site configuration.
+  --update-tfvars calculates totals across ALL clusters for the site:
+    - node_count: sum of all cluster nodes
+    - cpu/memory/disk: maximum values across all clusters
 
 ${GREEN}Examples:${NC}
   # Create basic cluster with defaults (3 CP + 3 workers)
@@ -385,6 +388,39 @@ update_site_readme() {
     log "✓ Updated: $readme_file"
 }
 
+# Calculate total requirements across all clusters for a site
+calculate_site_totals() {
+    local site_code=$1
+    local site_dir="${PROJECT_ROOT}/clusters/omni/${site_code}"
+    
+    local total_nodes=0
+    local max_cpu=0
+    local max_memory=0
+    local max_disk=0
+    
+    # Parse all cluster YAML files for this site
+    if [[ -d "$site_dir" ]]; then
+        while IFS= read -r yaml_file; do
+            [[ -f "$yaml_file" ]] || continue
+            
+            # Extract values from cluster file comments
+            local nodes=$(grep "^# - Total Nodes:" "$yaml_file" 2>/dev/null | awk '{print $5}')
+            local cpu=$(grep "^# - CPU:" "$yaml_file" 2>/dev/null | awk '{print $4}')
+            local memory=$(grep "^# - Memory:" "$yaml_file" 2>/dev/null | awk '{print $4}')
+            local disk=$(grep "^# - Disk:" "$yaml_file" 2>/dev/null | awk '{print $4}')
+            
+            if [[ -n "$nodes" ]]; then
+                total_nodes=$((total_nodes + nodes))
+                [[ $cpu -gt $max_cpu ]] && max_cpu=$cpu
+                [[ $memory -gt $max_memory ]] && max_memory=$memory
+                [[ $disk -gt $max_disk ]] && max_disk=$disk
+            fi
+        done < <(find "$site_dir" -maxdepth 1 -name "*.yaml" -type f ! -name ".*")
+    fi
+    
+    echo "$total_nodes $max_cpu $max_memory $max_disk"
+}
+
 # Update terraform.tfvars with node configuration
 update_terraform_tfvars() {
     local site_code=$1
@@ -393,6 +429,7 @@ update_terraform_tfvars() {
     local cpu=$4
     local memory=$5
     local disk=$6
+    local accumulate=${7:-false}
     
     local terraform_dir="${PROJECT_ROOT}/terraform/${platform}"
     local tfvars_file="${terraform_dir}/terraform.tfvars.${site_code}"
@@ -405,6 +442,24 @@ update_terraform_tfvars() {
     
     log "Updating Terraform configuration: $tfvars_file"
     
+    # If accumulating, calculate totals from all cluster files
+    if [[ "$accumulate" == "true" ]]; then
+        info "Calculating total requirements across all clusters for site $site_code..."
+        local totals=$(calculate_site_totals "$site_code")
+        read -r total_nodes cpu memory disk <<< "$totals"
+        
+        if [[ $total_nodes -eq 0 ]]; then
+            warn "No cluster configurations found, using provided values"
+            total_nodes=$3
+            cpu=$4
+            memory=$5
+            disk=$6
+        fi
+    fi
+    
+    # Create backup
+    cp "$tfvars_file" "${tfvars_file}.backup-$(date +%Y%m%d-%H%M%S)"
+    
     # Update node_count
     if grep -q "^node_count" "$tfvars_file"; then
         sed -i "s/^node_count[[:space:]]*=.*/node_count     = ${total_nodes}/" "$tfvars_file"
@@ -412,21 +467,21 @@ update_terraform_tfvars() {
         echo "node_count     = ${total_nodes}" >> "$tfvars_file"
     fi
     
-    # Update node_cpu
+    # Update node_cpu (use max across all clusters)
     if grep -q "^node_cpu" "$tfvars_file"; then
         sed -i "s/^node_cpu[[:space:]]*=.*/node_cpu       = ${cpu}/" "$tfvars_file"
     else
         echo "node_cpu       = ${cpu}" >> "$tfvars_file"
     fi
     
-    # Update node_memory
+    # Update node_memory (use max across all clusters)
     if grep -q "^node_memory" "$tfvars_file"; then
         sed -i "s/^node_memory[[:space:]]*=.*/node_memory    = ${memory}/" "$tfvars_file"
     else
         echo "node_memory    = ${memory}" >> "$tfvars_file"
     fi
     
-    # Update node_disk_size
+    # Update node_disk_size (use max across all clusters)
     if grep -q "^node_disk_size" "$tfvars_file"; then
         sed -i "s/^node_disk_size[[:space:]]*=.*/node_disk_size = ${disk}/" "$tfvars_file"
     else
@@ -434,10 +489,10 @@ update_terraform_tfvars() {
     fi
     
     log "✓ Updated Terraform variables:"
-    log "    node_count     = ${total_nodes}"
-    log "    node_cpu       = ${cpu}"
-    log "    node_memory    = ${memory}"
-    log "    node_disk_size = ${disk}"
+    log "    node_count     = ${total_nodes} (sum of all clusters)"
+    log "    node_cpu       = ${cpu} (max across clusters)"
+    log "    node_memory    = ${memory} (max across clusters)"
+    log "    node_disk_size = ${disk} (max across clusters)"
     
     return 0
 }
@@ -577,7 +632,7 @@ main() {
     if [[ "$update_tfvars" == true ]]; then
         echo ""
         log "Updating Terraform configuration..."
-        update_terraform_tfvars "$site_code" "$platform" "$total_nodes" "$cpu" "$memory" "$disk"
+        update_terraform_tfvars "$site_code" "$platform" "$total_nodes" "$cpu" "$memory" "$disk" "true"
     fi
     
     echo ""
