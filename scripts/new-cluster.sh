@@ -435,6 +435,9 @@ create_cluster_yaml() {
     local platform=${10}
     local size_class=${11}
     
+    # Debug output
+    info "create_cluster_yaml received: cpu=$cpu memory=$memory disk=$disk"
+    
     local full_cluster_name="${site_code}-${cluster_name}"
     local site_dir="${PROJECT_ROOT}/clusters/omni/${site_code}"
     local yaml_file="${site_dir}/${cluster_name}.yaml"
@@ -896,6 +899,9 @@ main() {
         size_class="$INTERACTIVE_SIZE"
         k8s_version="$INTERACTIVE_K8S"
         talos_version="$INTERACTIVE_TALOS"
+        
+        # Debug output
+        info "Values from interactive mode: cp=$control_planes workers=$workers cpu=$cpu memory=$memory disk=$disk size=$size_class"
     fi
     
     # Load site metadata to get platform
