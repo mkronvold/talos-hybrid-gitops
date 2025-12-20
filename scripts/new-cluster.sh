@@ -265,13 +265,13 @@ parse_existing_cluster() {
         return 1
     fi
     
-    # Extract values from comments
-    EXISTING_CP=$(grep -A 10 "^# Node specifications:" "$yaml_file" 2>/dev/null | grep "^# - Control Planes:" | head -1 | awk '{print $5}')
-    EXISTING_WORKERS=$(grep -A 10 "^# Node specifications:" "$yaml_file" 2>/dev/null | grep "^# - Workers:" | head -1 | awk '{print $4}')
-    EXISTING_CPU=$(grep -A 10 "^# Per-node resources:" "$yaml_file" 2>/dev/null | grep "^# - CPU:" | head -1 | awk '{print $4}')
-    EXISTING_MEMORY=$(grep -A 10 "^# Per-node resources:" "$yaml_file" 2>/dev/null | grep "^# - Memory:" | head -1 | awk '{print $4}')
-    EXISTING_DISK=$(grep -A 10 "^# Per-node resources:" "$yaml_file" 2>/dev/null | grep "^# - Disk:" | head -1 | awk '{print $4}')
-    EXISTING_SIZE=$(grep -A 10 "^# Node specifications:" "$yaml_file" 2>/dev/null | grep "^# - Size Class:" | head -1 | awk '{print $5}')
+    # Extract values from comments (use || true to handle missing values)
+    EXISTING_CP=$(grep -A 10 "^# Node specifications:" "$yaml_file" 2>/dev/null | grep "^# - Control Planes:" | head -1 | awk '{print $5}' || true)
+    EXISTING_WORKERS=$(grep -A 10 "^# Node specifications:" "$yaml_file" 2>/dev/null | grep "^# - Workers:" | head -1 | awk '{print $4}' || true)
+    EXISTING_CPU=$(grep -A 10 "^# Per-node resources:" "$yaml_file" 2>/dev/null | grep "^# - CPU:" | head -1 | awk '{print $4}' || true)
+    EXISTING_MEMORY=$(grep -A 10 "^# Per-node resources:" "$yaml_file" 2>/dev/null | grep "^# - Memory:" | head -1 | awk '{print $4}' || true)
+    EXISTING_DISK=$(grep -A 10 "^# Per-node resources:" "$yaml_file" 2>/dev/null | grep "^# - Disk:" | head -1 | awk '{print $4}' || true)
+    EXISTING_SIZE=$(grep -A 10 "^# Node specifications:" "$yaml_file" 2>/dev/null | grep "^# - Size Class:" | head -1 | awk '{print $5}' || true)
     
     export EXISTING_CP EXISTING_WORKERS EXISTING_CPU EXISTING_MEMORY EXISTING_DISK EXISTING_SIZE
 }
