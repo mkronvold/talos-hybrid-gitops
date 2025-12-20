@@ -163,54 +163,84 @@ create_cluster_yaml() {
     
     log "Creating cluster configuration: $full_cluster_name"
     
+    # Strip 'v' prefix from versions if present
+    local k8s_ver="${k8s_version#v}"
+    local talos_ver="${talos_version#v}"
+    
     cat > "$yaml_file" <<EOF
 ---
 # Cluster: ${full_cluster_name}
 # Site: ${site_code}
 # Environment: ${environment}
 # Created: $(date)
+#
+# Apply instructions:
+#   ./scripts/apply-cluster.sh ${cluster_name}.yaml
+#
+# This will create all resources: MachineClasses, Cluster, and MachineSets
 
-apiVersion: v1alpha1
-kind: Cluster
-name: ${full_cluster_name}
-labels:
-  site: ${site_code}
-  environment: ${environment}
-  platform: ${platform}
-  cluster: ${cluster_name}
-kubernetes:
-  version: ${k8s_version}
-talos:
-  version: ${talos_version}
-features:
-  enableWorkloadProxy: true
-  diskEncryption: false
-  useEmbeddedDiscoveryService: true
+---
+# Control plane machine class
+metadata:
+  namespace: default
+  type: MachineClasses.omni.sidero.dev
+  id: ${full_cluster_name}-control-plane
+spec:
+  matchlabels:
+    - site = ${site_code}
+    - platform = ${platform}
+
+---
+# Worker machine class
+metadata:
+  namespace: default
+  type: MachineClasses.omni.sidero.dev
+  id: ${full_cluster_name}-worker
+spec:
+  matchlabels:
+    - site = ${site_code}
+    - platform = ${platform}
+
+---
+# Cluster resource
+metadata:
+  namespace: default
+  type: Clusters.omni.sidero.dev
+  id: ${full_cluster_name}
+spec:
+  kubernetesversion: ${k8s_ver}
+  talosversion: ${talos_ver}
+  features:
+    enableworkloadproxy: true
+    diskencryption: false
+    useembeddeddiscoveryservice: true
 
 ---
 # Control plane machine set
-apiVersion: v1alpha1
-kind: MachineSet
-name: ${full_cluster_name}-control-planes
-cluster: ${full_cluster_name}
-machineClass:
-  name: control-plane
-  machineCount: ${control_planes}
-  
-  # Machine allocation strategy
-  allocationStrategy:
-    type: static  # Manually assign machines via Omni UI or labels
-  
-  # Machine requirements
-  requirements:
-    - key: "site"
-      operator: "In"
-      values: ["${site_code}"]
-    - key: "platform"
-      operator: "In"
-      values: ["${platform}"]
-
-patches:
+metadata:
+  namespace: default
+  type: MachineSets.omni.sidero.dev
+  id: ${full_cluster_name}-control-planes
+  labels:
+    omni.sidero.dev/cluster: ${full_cluster_name}
+    omni.sidero.dev/role-controlplane: ""
+spec:
+  cluster: ${full_cluster_name}
+  machineclass:
+    name: ${full_cluster_name}-control-plane
+    machinecount: ${control_planes}
+    allocationstrategy:
+      type: static
+    requirements:
+      - key: site
+        operator: In
+        values:
+          - ${site_code}
+      - key: platform
+        operator: In
+        values:
+          - ${platform}
+  patches:
   - |
     machine:
       install:
@@ -250,26 +280,30 @@ patches:
 
 ---
 # Worker machine set
-apiVersion: v1alpha1
-kind: MachineSet
-name: ${full_cluster_name}-workers
-cluster: ${full_cluster_name}
-machineClass:
-  name: worker
-  machineCount: ${workers}
-  
-  allocationStrategy:
-    type: static
-  
-  requirements:
-    - key: "site"
-      operator: "In"
-      values: ["${site_code}"]
-    - key: "platform"
-      operator: "In"
-      values: ["${platform}"]
-
-patches:
+metadata:
+  namespace: default
+  type: MachineSets.omni.sidero.dev
+  id: ${full_cluster_name}-workers
+  labels:
+    omni.sidero.dev/cluster: ${full_cluster_name}
+    omni.sidero.dev/role-worker: ""
+spec:
+  cluster: ${full_cluster_name}
+  machineclass:
+    name: ${full_cluster_name}-worker
+    machinecount: ${workers}
+    allocationstrategy:
+      type: static
+    requirements:
+      - key: site
+        operator: In
+        values:
+          - ${site_code}
+      - key: platform
+        operator: In
+        values:
+          - ${platform}
+  patches:
   - |
     machine:
       install:

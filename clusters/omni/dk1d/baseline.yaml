@@ -2,49 +2,75 @@
 # Cluster: dk1d-baseline
 # Site: dk1d
 # Environment: development
-# Created: Fri Dec 19 23:20:48 UTC 2025
+# Created: Sat Dec 20 00:04:37 UTC 2025
+#
+# Apply instructions:
+#   ./scripts/apply-cluster.sh baseline.yaml
+#
+# This will create all resources: MachineClasses, Cluster, and MachineSets
 
-apiVersion: v1alpha1
-kind: Cluster
-name: dk1d-baseline
-labels:
-  site: dk1d
-  environment: development
-  platform: proxmox
-  cluster: baseline
-kubernetes:
-  version: v1.29.0
-talos:
-  version: v1.9.5
-features:
-  enableWorkloadProxy: true
-  diskEncryption: false
-  useEmbeddedDiscoveryService: true
+---
+# Control plane machine class
+metadata:
+  namespace: default
+  type: MachineClasses.omni.sidero.dev
+  id: dk1d-baseline-control-plane
+spec:
+  matchlabels:
+    - site = dk1d
+    - platform = proxmox
+
+---
+# Worker machine class
+metadata:
+  namespace: default
+  type: MachineClasses.omni.sidero.dev
+  id: dk1d-baseline-worker
+spec:
+  matchlabels:
+    - site = dk1d
+    - platform = proxmox
+
+---
+# Cluster resource
+metadata:
+  namespace: default
+  type: Clusters.omni.sidero.dev
+  id: dk1d-baseline
+spec:
+  kubernetesversion: 1.29.0
+  talosversion: 1.9.5
+  features:
+    enableworkloadproxy: true
+    diskencryption: false
+    useembeddeddiscoveryservice: true
 
 ---
 # Control plane machine set
-apiVersion: v1alpha1
-kind: MachineSet
-name: dk1d-baseline-control-planes
-cluster: dk1d-baseline
-machineClass:
-  name: control-plane
-  machineCount: 1
-  
-  # Machine allocation strategy
-  allocationStrategy:
-    type: static  # Manually assign machines via Omni UI or labels
-  
-  # Machine requirements
-  requirements:
-    - key: "site"
-      operator: "In"
-      values: ["dk1d"]
-    - key: "platform"
-      operator: "In"
-      values: ["proxmox"]
-
-patches:
+metadata:
+  namespace: default
+  type: MachineSets.omni.sidero.dev
+  id: dk1d-baseline-control-planes
+  labels:
+    omni.sidero.dev/cluster: dk1d-baseline
+    omni.sidero.dev/role-controlplane: ""
+spec:
+  cluster: dk1d-baseline
+  machineclass:
+    name: dk1d-baseline-control-plane
+    machinecount: 1
+    allocationstrategy:
+      type: static
+    requirements:
+      - key: site
+        operator: In
+        values:
+          - dk1d
+      - key: platform
+        operator: In
+        values:
+          - proxmox
+  patches:
   - |
     machine:
       install:
@@ -84,26 +110,30 @@ patches:
 
 ---
 # Worker machine set
-apiVersion: v1alpha1
-kind: MachineSet
-name: dk1d-baseline-workers
-cluster: dk1d-baseline
-machineClass:
-  name: worker
-  machineCount: 3
-  
-  allocationStrategy:
-    type: static
-  
-  requirements:
-    - key: "site"
-      operator: "In"
-      values: ["dk1d"]
-    - key: "platform"
-      operator: "In"
-      values: ["proxmox"]
-
-patches:
+metadata:
+  namespace: default
+  type: MachineSets.omni.sidero.dev
+  id: dk1d-baseline-workers
+  labels:
+    omni.sidero.dev/cluster: dk1d-baseline
+    omni.sidero.dev/role-worker: ""
+spec:
+  cluster: dk1d-baseline
+  machineclass:
+    name: dk1d-baseline-worker
+    machinecount: 3
+    allocationstrategy:
+      type: static
+    requirements:
+      - key: site
+        operator: In
+        values:
+          - dk1d
+      - key: platform
+        operator: In
+        values:
+          - proxmox
+  patches:
   - |
     machine:
       install:

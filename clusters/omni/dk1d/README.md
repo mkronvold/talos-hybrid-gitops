@@ -72,6 +72,9 @@ source ~/omni.sh
 
 | dk1d-baseline | 1 | 3 | not deployed | 2025-12-19 |
 | dk1d-baseline | 1 | 3 | not deployed | 2025-12-19 |
+| dk1d-baseline | 1 | 3 | not deployed | 2025-12-19 |
+| dk1d-baseline | 1 | 3 | not deployed | 2025-12-19 |
+| dk1d-baseline | 1 | 3 | not deployed | 2025-12-20 |
 ## Notes
 
 <!-- Add site-specific notes here -->

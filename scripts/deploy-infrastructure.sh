@@ -259,7 +259,7 @@ apply_omni_config() {
     
     log "Applying Omni cluster configuration for $site_code: $(basename "$cluster_file")"
     
-    omnictl apply -f "$cluster_file"
+    "${SCRIPT_DIR}/apply-cluster.sh" "$cluster_file"
     
     log "Cluster configuration applied. Check status with: omnictl get clusters"
 }
@@ -289,9 +289,11 @@ get_kubeconfig() {
 # Main deployment workflow
 main() {
     # Parse arguments
-    if [[ $# -lt 1 ]]; then
-        error "Missing required arguments"
-        echo ""
+    if [[ $# -lt 1 ]] || [[ "$1" == "-h" ]] || [[ "$1" == "--help" ]]; then
+        if [[ $# -lt 1 ]]; then
+            error "Missing required arguments"
+            echo ""
+        fi
         usage
     fi
     
@@ -373,7 +375,7 @@ main() {
     else
         log "=== Step 4: Manual Cluster Configuration ==="
         warn "No cluster file specified. Apply manually with:"
-        warn "  omnictl apply -f clusters/omni/${site_code}-cluster.yaml"
+        warn "  ./scripts/apply-cluster.sh clusters/omni/${site_code}/<cluster>.yaml"
     fi
     
     # Summary
