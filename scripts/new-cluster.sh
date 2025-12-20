@@ -63,14 +63,14 @@ load_size_classes() {
     declare -g -A SIZE_CLASS_DESC
     declare -g -a SIZE_CLASS_ORDER
     
-    while IFS=',' read -r class cpu memory desc; do
+    while IFS=',' read -r class class_cpu class_memory desc; do
         # Skip comments and header
         [[ "$class" =~ ^#.*$ ]] && continue
         [[ "$class" == "size_class" ]] && continue
         [[ -z "$class" ]] && continue
         
-        SIZE_CLASS_CPU[$class]=$cpu
-        SIZE_CLASS_MEMORY[$class]=$memory
+        SIZE_CLASS_CPU[$class]=$class_cpu
+        SIZE_CLASS_MEMORY[$class]=$class_memory
         SIZE_CLASS_DESC[$class]=$desc
         SIZE_CLASS_ORDER+=("$class")
     done < "$csv_file"
@@ -434,9 +434,6 @@ create_cluster_yaml() {
     local talos_version=$9
     local platform=${10}
     local size_class=${11}
-    
-    # Debug output
-    info "create_cluster_yaml received: cpu=$cpu memory=$memory disk=$disk"
     
     local full_cluster_name="${site_code}-${cluster_name}"
     local site_dir="${PROJECT_ROOT}/clusters/omni/${site_code}"
@@ -899,9 +896,6 @@ main() {
         size_class="$INTERACTIVE_SIZE"
         k8s_version="$INTERACTIVE_K8S"
         talos_version="$INTERACTIVE_TALOS"
-        
-        # Debug output
-        info "Values from interactive mode: cp=$control_planes workers=$workers cpu=$cpu memory=$memory disk=$disk size=$size_class"
     fi
     
     # Load site metadata to get platform

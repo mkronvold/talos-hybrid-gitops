@@ -66,14 +66,14 @@ load_size_classes() {
     declare -g -A SIZE_CLASS_DESC
     declare -g -a SIZE_CLASS_ORDER
     
-    while IFS=',' read -r class cpu memory desc; do
+    while IFS=',' read -r class class_cpu class_memory desc; do
         # Skip comments and header
         [[ "$class" =~ ^#.*$ ]] && continue
         [[ "$class" == "size_class" ]] && continue
         [[ -z "$class" ]] && continue
         
-        SIZE_CLASS_CPU[$class]=$cpu
-        SIZE_CLASS_MEMORY[$class]=$memory
+        SIZE_CLASS_CPU[$class]=$class_cpu
+        SIZE_CLASS_MEMORY[$class]=$class_memory
         SIZE_CLASS_DESC[$class]=$desc
         SIZE_CLASS_ORDER+=("$class")
     done < "$csv_file"
