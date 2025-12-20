@@ -48,6 +48,34 @@ load_site_metadata() {
     log "✓ Loaded site metadata: $site_code (platform: $PLATFORM)"
 }
 
+# Load size class definitions from CSV
+load_size_classes() {
+    local csv_file="${PROJECT_ROOT}/clusters/size_classes.csv"
+    
+    if [[ ! -f "$csv_file" ]]; then
+        error "Size class definitions not found: $csv_file"
+        return 1
+    fi
+    
+    # Read CSV into associative arrays (skip header and comments)
+    declare -g -A SIZE_CLASS_CPU
+    declare -g -A SIZE_CLASS_MEMORY
+    declare -g -A SIZE_CLASS_DESC
+    declare -g -a SIZE_CLASS_ORDER
+    
+    while IFS=',' read -r class cpu memory desc; do
+        # Skip comments and header
+        [[ "$class" =~ ^#.*$ ]] && continue
+        [[ "$class" == "size_class" ]] && continue
+        [[ -z "$class" ]] && continue
+        
+        SIZE_CLASS_CPU[$class]=$cpu
+        SIZE_CLASS_MEMORY[$class]=$memory
+        SIZE_CLASS_DESC[$class]=$desc
+        SIZE_CLASS_ORDER+=("$class")
+    done < "$csv_file"
+}
+
 # Usage information
 usage() {
     cat << EOF
@@ -71,11 +99,32 @@ ${GREEN}Options:${NC}
   --help                 Show this help message
 
 ${GREEN}Size Classes:${NC}
-  tiny:   cpu <= 1,  memory <= 2GB   (1 core,  2048 MB)
-  small:  cpu <= 2,  memory <= 4GB   (2 cores, 4096 MB)
-  medium: cpu <= 4,  memory <= 8GB   (4 cores, 8192 MB)
-  large:  cpu <= 8,  memory <= 16GB  (8 cores, 16384 MB)
-  xlarge: cpu > 8    or memory > 16GB
+  (Loaded from clusters/size_classes.csv)
+EOF
+    
+    # Load and display size classes
+    load_size_classes 2>/dev/null || {
+        echo "  tiny:   1 CPU,  2GB"
+        echo "  small:  2 CPU,  4GB"
+        echo "  medium: 4 CPU,  8GB"
+        echo "  large:  8 CPU, 16GB"
+        echo "  xlarge: >8 CPU or >16GB"
+    }
+    
+    if [[ ${#SIZE_CLASS_ORDER[@]} -gt 0 ]]; then
+        for class in "${SIZE_CLASS_ORDER[@]}"; do
+            local cpu=${SIZE_CLASS_CPU[$class]}
+            local mem=${SIZE_CLASS_MEMORY[$class]}
+            local desc=${SIZE_CLASS_DESC[$class]}
+            if [[ $cpu -eq 999 ]]; then
+                printf "  %-8s: >%d CPU or >%dGB - %s\n" "$class" "${SIZE_CLASS_CPU[${SIZE_CLASS_ORDER[-2]}]}" "$((${SIZE_CLASS_MEMORY[${SIZE_CLASS_ORDER[-2]}]} / 1024))" "$desc"
+            else
+                printf "  %-8s: ≤%d CPU, ≤%dGB - %s\n" "$class" "$cpu" "$((mem / 1024))" "$desc"
+            fi
+        done
+    fi
+    
+    cat << EOF
 
 ${GREEN}Note:${NC}
   Platform is automatically detected from site configuration.
@@ -153,33 +202,51 @@ determine_size_class() {
     local cpu=$1
     local memory=$2
     
-    # Size class thresholds
-    if [[ $cpu -le 1 && $memory -le 2048 ]]; then
-        echo "tiny"
-    elif [[ $cpu -le 2 && $memory -le 4096 ]]; then
-        echo "small"
-    elif [[ $cpu -le 4 && $memory -le 8192 ]]; then
-        echo "medium"
-    elif [[ $cpu -le 8 && $memory -le 16384 ]]; then
-        echo "large"
-    else
-        echo "xlarge"
+    # Load size classes if not already loaded
+    if [[ ${#SIZE_CLASS_ORDER[@]} -eq 0 ]]; then
+        load_size_classes
     fi
+    
+    # Find the appropriate size class (iterate in order)
+    for class in "${SIZE_CLASS_ORDER[@]}"; do
+        local max_cpu=${SIZE_CLASS_CPU[$class]}
+        local max_memory=${SIZE_CLASS_MEMORY[$class]}
+        
+        # Skip xlarge limit check (it's the catch-all)
+        if [[ $max_cpu -eq 999 ]]; then
+            echo "$class"
+            return 0
+        fi
+        
+        if [[ $cpu -le $max_cpu && $memory -le $max_memory ]]; then
+            echo "$class"
+            return 0
+        fi
+    done
+    
+    # Fallback to last class if nothing matched
+    echo "${SIZE_CLASS_ORDER[-1]}"
 }
 
 # Validate size class
 validate_size_class() {
     local size=$1
-    case $size in
-        tiny|small|medium|large|xlarge)
+    
+    # Load size classes if not already loaded
+    if [[ ${#SIZE_CLASS_ORDER[@]} -eq 0 ]]; then
+        load_size_classes
+    fi
+    
+    # Check if size class exists in our definitions
+    for class in "${SIZE_CLASS_ORDER[@]}"; do
+        if [[ "$class" == "$size" ]]; then
             return 0
-            ;;
-        *)
-            error "Invalid size class: $size"
-            error "Must be one of: tiny, small, medium, large, xlarge"
-            return 1
-            ;;
-    esac
+        fi
+    done
+    
+    error "Invalid size class: $size"
+    error "Must be one of: ${SIZE_CLASS_ORDER[*]}"
+    return 1
 }
 
 # Create cluster YAML
@@ -634,6 +701,12 @@ main() {
     # Load site metadata to get platform
     load_site_metadata "$site_code" || exit 1
     local platform="$PLATFORM"
+    
+    # Load size class definitions
+    load_size_classes || {
+        error "Failed to load size class definitions"
+        exit 1
+    }
     
     # Auto-detect size class if not specified
     if [[ -z "$size_class" ]]; then

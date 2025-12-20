@@ -51,6 +51,34 @@ load_site_metadata() {
     log "✓ Loaded site metadata: $site_code (platform: $PLATFORM)"
 }
 
+# Load size class definitions from CSV
+load_size_classes() {
+    local csv_file="${PROJECT_ROOT}/clusters/size_classes.csv"
+    
+    if [[ ! -f "$csv_file" ]]; then
+        error "Size class definitions not found: $csv_file"
+        return 1
+    fi
+    
+    # Read CSV into associative arrays (skip header and comments)
+    declare -g -A SIZE_CLASS_CPU
+    declare -g -A SIZE_CLASS_MEMORY
+    declare -g -A SIZE_CLASS_DESC
+    declare -g -a SIZE_CLASS_ORDER
+    
+    while IFS=',' read -r class cpu memory desc; do
+        # Skip comments and header
+        [[ "$class" =~ ^#.*$ ]] && continue
+        [[ "$class" == "size_class" ]] && continue
+        [[ -z "$class" ]] && continue
+        
+        SIZE_CLASS_CPU[$class]=$cpu
+        SIZE_CLASS_MEMORY[$class]=$memory
+        SIZE_CLASS_DESC[$class]=$desc
+        SIZE_CLASS_ORDER+=("$class")
+    done < "$csv_file"
+}
+
 # Usage information
 usage() {
     cat << EOF
