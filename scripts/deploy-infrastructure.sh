@@ -173,13 +173,13 @@ calculate_site_totals() {
         while IFS= read -r yaml_file; do
             [[ -f "$yaml_file" ]] || continue
             
-            # Extract values from cluster file comments
-            local nodes=$(grep "^# - Total Nodes:" "$yaml_file" 2>/dev/null | awk '{print $5}')
-            local cpu=$(grep "^# - CPU:" "$yaml_file" 2>/dev/null | awk '{print $4}')
-            local memory=$(grep "^# - Memory:" "$yaml_file" 2>/dev/null | awk '{print $4}')
-            local disk=$(grep "^# - Disk:" "$yaml_file" 2>/dev/null | awk '{print $4}')
+            # Extract values from cluster file comments (Per-node resources section only)
+            local nodes=$(grep -A 10 "^# Node specifications:" "$yaml_file" 2>/dev/null | grep "^# - Total Nodes:" | head -1 | awk '{print $5}')
+            local cpu=$(grep -A 10 "^# Per-node resources:" "$yaml_file" 2>/dev/null | grep "^# - CPU:" | head -1 | awk '{print $4}')
+            local memory=$(grep -A 10 "^# Per-node resources:" "$yaml_file" 2>/dev/null | grep "^# - Memory:" | head -1 | awk '{print $4}')
+            local disk=$(grep -A 10 "^# Per-node resources:" "$yaml_file" 2>/dev/null | grep "^# - Disk:" | head -1 | awk '{print $4}')
             
-            if [[ -n "$nodes" ]]; then
+            if [[ -n "$nodes" && -n "$cpu" && -n "$memory" && -n "$disk" ]]; then
                 total_nodes=$((total_nodes + nodes))
                 [[ $cpu -gt $max_cpu ]] && max_cpu=$cpu
                 [[ $memory -gt $max_memory ]] && max_memory=$memory
