@@ -65,12 +65,21 @@ ${GREEN}Options:${NC}
   --cpu <n>              CPU cores per node (default: 4)
   --memory <mb>          Memory in MB per node (default: 8192)
   --disk <gb>            Disk size in GB per node (default: 50)
+  --size-class <class>   Size class: tiny, small, medium, large, xlarge (auto-detected if not specified)
   --k8s-version <ver>    Kubernetes version (default: v1.32.0)
   --talos-version <ver>  Talos version (default: v1.11.5)
   --help                 Show this help message
 
+${GREEN}Size Classes:${NC}
+  tiny:   cpu <= 1,  memory <= 2GB   (1 core,  2048 MB)
+  small:  cpu <= 2,  memory <= 4GB   (2 cores, 4096 MB)
+  medium: cpu <= 4,  memory <= 8GB   (4 cores, 8192 MB)
+  large:  cpu <= 8,  memory <= 16GB  (8 cores, 16384 MB)
+  xlarge: cpu > 8    or memory > 16GB
+
 ${GREEN}Note:${NC}
   Platform is automatically detected from site configuration.
+  Size class is auto-detected from cpu/memory if not specified.
   terraform.tfvars.{site} is automatically updated with accumulated totals:
     - node_count: sum of all cluster nodes
     - cpu/memory/disk: maximum values across all clusters
@@ -139,6 +148,40 @@ get_environment() {
     esac
 }
 
+# Determine size class from CPU and memory
+determine_size_class() {
+    local cpu=$1
+    local memory=$2
+    
+    # Size class thresholds
+    if [[ $cpu -le 1 && $memory -le 2048 ]]; then
+        echo "tiny"
+    elif [[ $cpu -le 2 && $memory -le 4096 ]]; then
+        echo "small"
+    elif [[ $cpu -le 4 && $memory -le 8192 ]]; then
+        echo "medium"
+    elif [[ $cpu -le 8 && $memory -le 16384 ]]; then
+        echo "large"
+    else
+        echo "xlarge"
+    fi
+}
+
+# Validate size class
+validate_size_class() {
+    local size=$1
+    case $size in
+        tiny|small|medium|large|xlarge)
+            return 0
+            ;;
+        *)
+            error "Invalid size class: $size"
+            error "Must be one of: tiny, small, medium, large, xlarge"
+            return 1
+            ;;
+    esac
+}
+
 # Create cluster YAML
 create_cluster_yaml() {
     local site_code=$1
@@ -151,6 +194,7 @@ create_cluster_yaml() {
     local k8s_version=$8
     local talos_version=$9
     local platform=${10}
+    local size_class=${11}
     
     local full_cluster_name="${site_code}-${cluster_name}"
     local site_dir="${PROJECT_ROOT}/clusters/omni/${site_code}"
@@ -192,6 +236,7 @@ spec:
   matchlabels:
     - site = ${site_code}
     - platform = ${platform}
+    - size = ${size_class}
 
 ---
 # Worker machine class
@@ -203,6 +248,7 @@ spec:
   matchlabels:
     - site = ${site_code}
     - platform = ${platform}
+    - size = ${size_class}
 
 ---
 # Cluster resource
@@ -227,6 +273,10 @@ metadata:
   labels:
     omni.sidero.dev/cluster: ${full_cluster_name}
     omni.sidero.dev/role-controlplane: ""
+    role: controlplane
+    site: ${site_code}
+    platform: ${platform}
+    size: ${size_class}
 spec:
   cluster: ${full_cluster_name}
   machineclass:
@@ -243,6 +293,10 @@ spec:
         operator: In
         values:
           - ${platform}
+      - key: size
+        operator: In
+        values:
+          - ${size_class}
   patches:
   - |
     machine:
@@ -290,6 +344,10 @@ metadata:
   labels:
     omni.sidero.dev/cluster: ${full_cluster_name}
     omni.sidero.dev/role-worker: ""
+    role: worker
+    site: ${site_code}
+    platform: ${platform}
+    size: ${size_class}
 spec:
   cluster: ${full_cluster_name}
   machineclass:
@@ -306,6 +364,10 @@ spec:
         operator: In
         values:
           - ${platform}
+      - key: size
+        operator: In
+        values:
+          - ${size_class}
   patches:
   - |
     machine:
@@ -334,6 +396,7 @@ spec:
 # - Control Planes: ${control_planes}
 # - Workers: ${workers}
 # - Total Nodes: $((control_planes + workers))
+# - Size Class: ${size_class}
 #
 # Per-node resources:
 # - CPU: ${cpu} cores
@@ -521,6 +584,7 @@ main() {
     local disk=50
     local k8s_version="v1.30.0"
     local talos_version="v1.11.5"
+    local size_class=""  # Auto-detect if not specified
     
     # Parse options
     while [[ $# -gt 0 ]]; do
@@ -545,6 +609,10 @@ main() {
                 disk="$2"
                 shift 2
                 ;;
+            --size-class)
+                size_class="$2"
+                shift 2
+                ;;
             --k8s-version)
                 k8s_version="$2"
                 shift 2
@@ -567,6 +635,14 @@ main() {
     load_site_metadata "$site_code" || exit 1
     local platform="$PLATFORM"
     
+    # Auto-detect size class if not specified
+    if [[ -z "$size_class" ]]; then
+        size_class=$(determine_size_class "$cpu" "$memory")
+        info "Auto-detected size class: $size_class"
+    else
+        validate_size_class "$size_class" || exit 1
+    fi
+    
     local full_cluster_name="${site_code}-${cluster_name}"
     local total_nodes=$((control_planes + workers))
     local total_cpu=$((cpu * total_nodes))
@@ -581,6 +657,7 @@ main() {
     echo -e "${BLUE}Cluster Name:${NC}    $cluster_name"
     echo -e "${BLUE}Full Name:${NC}       $full_cluster_name"
     echo -e "${BLUE}Platform:${NC}        $platform"
+    echo -e "${BLUE}Size Class:${NC}      $size_class"
     echo ""
     echo -e "${BLUE}Topology:${NC}"
     echo -e "  Control Planes: $control_planes"
@@ -617,7 +694,7 @@ main() {
     
     # Create cluster configuration
     create_cluster_yaml "$site_code" "$cluster_name" "$control_planes" "$workers" \
-        "$cpu" "$memory" "$disk" "$k8s_version" "$talos_version" "$platform"
+        "$cpu" "$memory" "$disk" "$k8s_version" "$talos_version" "$platform" "$size_class"
     
     # Update site README
     update_site_readme "$site_code" "$cluster_name" "$control_planes" "$workers"
