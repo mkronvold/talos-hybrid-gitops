@@ -297,6 +297,14 @@ interactive_mode() {
     local cluster_name=$2
     local yaml_file="${PROJECT_ROOT}/clusters/omni/${site_code}/${cluster_name}.yaml"
     
+    # Initialize existing variables to empty
+    EXISTING_CP=""
+    EXISTING_WORKERS=""
+    EXISTING_CPU=""
+    EXISTING_MEMORY=""
+    EXISTING_DISK=""
+    EXISTING_SIZE=""
+    
     echo -e "${GREEN}╔════════════════════════════════════════════════════════════╗${NC}"
     echo -e "${GREEN}║      Talos Hybrid GitOps - Interactive Cluster Setup     ║${NC}"
     echo -e "${GREEN}╚════════════════════════════════════════════════════════════╝${NC}"
