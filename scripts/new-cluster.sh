@@ -96,6 +96,7 @@ ${GREEN}Options:${NC}
   --size-class <class>   Size class: tiny, small, medium, large, xlarge (auto-detected if not specified)
   --k8s-version <ver>    Kubernetes version (default: v1.32.0)
   --talos-version <ver>  Talos version (default: v1.11.5)
+  --interactive, -i      Interactive mode with prompts
   --help                 Show this help message
 
 ${GREEN}Size Classes:${NC}
@@ -134,14 +135,21 @@ ${GREEN}Note:${NC}
     - cpu/memory/disk: maximum values across all clusters
 
 ${GREEN}Examples:${NC}
-  # Create basic cluster with defaults (3 CP + 3 workers)
+  # Interactive mode (recommended for new users)
+  $0 ny1d web --interactive
+  $0 ny1d web -i
+  
+  # Create basic cluster with defaults (1 CP + 3 workers)
   $0 ny1d web
   
   # Create cluster with custom sizing
   $0 sf2p data --control-planes 5 --workers 10 --cpu 8 --memory 16384
   
-  # Create small dev cluster
-  $0 la1s dev --control-planes 1 --workers 2 --cpu 2 --memory 4096
+  # Create small dev cluster with specific size class
+  $0 la1s dev --control-planes 1 --workers 2 --size-class small
+  
+  # Update existing cluster (interactive mode backs up old file)
+  $0 ny1d web -i
 
 ${GREEN}Generated Files:${NC}
   clusters/omni/<site-code>/<cluster-name>.yaml
@@ -247,6 +255,162 @@ validate_size_class() {
     error "Invalid size class: $size"
     error "Must be one of: ${SIZE_CLASS_ORDER[*]}"
     return 1
+}
+
+# Parse existing cluster YAML to get current values
+parse_existing_cluster() {
+    local yaml_file=$1
+    
+    if [[ ! -f "$yaml_file" ]]; then
+        return 1
+    fi
+    
+    # Extract values from comments
+    EXISTING_CP=$(grep -A 10 "^# Node specifications:" "$yaml_file" 2>/dev/null | grep "^# - Control Planes:" | head -1 | awk '{print $5}')
+    EXISTING_WORKERS=$(grep -A 10 "^# Node specifications:" "$yaml_file" 2>/dev/null | grep "^# - Workers:" | head -1 | awk '{print $4}')
+    EXISTING_CPU=$(grep -A 10 "^# Per-node resources:" "$yaml_file" 2>/dev/null | grep "^# - CPU:" | head -1 | awk '{print $4}')
+    EXISTING_MEMORY=$(grep -A 10 "^# Per-node resources:" "$yaml_file" 2>/dev/null | grep "^# - Memory:" | head -1 | awk '{print $4}')
+    EXISTING_DISK=$(grep -A 10 "^# Per-node resources:" "$yaml_file" 2>/dev/null | grep "^# - Disk:" | head -1 | awk '{print $4}')
+    EXISTING_SIZE=$(grep -A 10 "^# Node specifications:" "$yaml_file" 2>/dev/null | grep "^# - Size Class:" | head -1 | awk '{print $5}')
+    
+    export EXISTING_CP EXISTING_WORKERS EXISTING_CPU EXISTING_MEMORY EXISTING_DISK EXISTING_SIZE
+}
+
+# Prompt for input with default value
+prompt_with_default() {
+    local prompt=$1
+    local default=$2
+    local varname=$3
+    
+    if [[ -n "$default" ]]; then
+        read -p "${prompt} [${default}]: " value
+        eval "$varname=\"\${value:-$default}\""
+    else
+        read -p "${prompt}: " value
+        eval "$varname=\"$value\""
+    fi
+}
+
+# Interactive mode
+interactive_mode() {
+    local site_code=$1
+    local cluster_name=$2
+    local yaml_file="${PROJECT_ROOT}/clusters/omni/${site_code}/${cluster_name}.yaml"
+    
+    echo -e "${GREEN}╔════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${GREEN}║      Talos Hybrid GitOps - Interactive Cluster Setup     ║${NC}"
+    echo -e "${GREEN}╚════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+    
+    # Check for existing cluster config
+    if [[ -f "$yaml_file" ]]; then
+        warn "Existing cluster configuration found: $yaml_file"
+        parse_existing_cluster "$yaml_file"
+        
+        echo ""
+        read -p "Use existing values as defaults? [Y/n]: " use_existing
+        if [[ "$use_existing" =~ ^[Nn] ]]; then
+            EXISTING_CP=""
+            EXISTING_WORKERS=""
+            EXISTING_CPU=""
+            EXISTING_MEMORY=""
+            EXISTING_DISK=""
+            EXISTING_SIZE=""
+        fi
+    fi
+    
+    echo ""
+    log "Configuring cluster: ${site_code}-${cluster_name}"
+    echo ""
+    
+    # Load size classes
+    load_size_classes || {
+        error "Failed to load size class definitions"
+        exit 1
+    }
+    
+    # Prompt for size class first
+    echo -e "${BLUE}Available Size Classes:${NC}"
+    local i=1
+    for class in "${SIZE_CLASS_ORDER[@]}"; do
+        local cpu=${SIZE_CLASS_CPU[$class]}
+        local mem=${SIZE_CLASS_MEMORY[$class]}
+        local desc=${SIZE_CLASS_DESC[$class]}
+        if [[ $cpu -eq 999 ]]; then
+            printf "  %d) %-8s - %s\n" "$i" "$class" "$desc"
+        else
+            printf "  %d) %-8s - ≤%d CPU, ≤%dGB - %s\n" "$i" "$class" "$cpu" "$((mem / 1024))" "$desc"
+        fi
+        ((i++))
+    done
+    echo ""
+    
+    # Determine default size class selection
+    local default_size_idx=3  # medium by default
+    if [[ -n "$EXISTING_SIZE" ]]; then
+        for idx in "${!SIZE_CLASS_ORDER[@]}"; do
+            if [[ "${SIZE_CLASS_ORDER[$idx]}" == "$EXISTING_SIZE" ]]; then
+                default_size_idx=$((idx + 1))
+                break
+            fi
+        done
+    fi
+    
+    prompt_with_default "Select size class (1-${#SIZE_CLASS_ORDER[@]})" "$default_size_idx" selected_idx
+    
+    # Validate and set size class
+    if [[ $selected_idx -lt 1 || $selected_idx -gt ${#SIZE_CLASS_ORDER[@]} ]]; then
+        error "Invalid selection"
+        exit 1
+    fi
+    
+    local size_class="${SIZE_CLASS_ORDER[$((selected_idx - 1))]}"
+    local preset_cpu=${SIZE_CLASS_CPU[$size_class]}
+    local preset_memory=${SIZE_CLASS_MEMORY[$size_class]}
+    
+    # Adjust preset values for xlarge/huge
+    [[ $preset_cpu -eq 999 ]] && preset_cpu=16
+    [[ $preset_memory -eq 999999 ]] && preset_memory=65536
+    
+    info "Selected size class: $size_class"
+    echo ""
+    
+    # Prompt for cluster topology
+    echo -e "${BLUE}Cluster Topology:${NC}"
+    prompt_with_default "Control plane nodes" "${EXISTING_CP:-1}" control_planes
+    prompt_with_default "Worker nodes" "${EXISTING_WORKERS:-3}" workers
+    echo ""
+    
+    # Prompt for node resources
+    echo -e "${BLUE}Per-Node Resources:${NC}"
+    prompt_with_default "CPU cores" "${EXISTING_CPU:-$preset_cpu}" cpu
+    prompt_with_default "Memory (MB)" "${EXISTING_MEMORY:-$preset_memory}" memory
+    prompt_with_default "Disk size (GB)" "${EXISTING_DISK:-50}" disk
+    echo ""
+    
+    # Prompt for versions
+    echo -e "${BLUE}Software Versions:${NC}"
+    prompt_with_default "Kubernetes version" "v1.32.0" k8s_version
+    prompt_with_default "Talos version" "v1.11.5" talos_version
+    echo ""
+    
+    # Export values for main function
+    export INTERACTIVE_MODE=true
+    export INTERACTIVE_CP="$control_planes"
+    export INTERACTIVE_WORKERS="$workers"
+    export INTERACTIVE_CPU="$cpu"
+    export INTERACTIVE_MEMORY="$memory"
+    export INTERACTIVE_DISK="$disk"
+    export INTERACTIVE_SIZE="$size_class"
+    export INTERACTIVE_K8S="$k8s_version"
+    export INTERACTIVE_TALOS="$talos_version"
+    
+    # If existing file, move it out of the way
+    if [[ -f "$yaml_file" ]]; then
+        local backup_file="${yaml_file}.backup-$(date +%Y%m%d-%H%M%S)"
+        log "Moving existing file to: $backup_file"
+        mv "$yaml_file" "$backup_file"
+    fi
 }
 
 # Create cluster YAML
@@ -652,6 +816,7 @@ main() {
     local k8s_version="v1.30.0"
     local talos_version="v1.11.5"
     local size_class=""  # Auto-detect if not specified
+    local interactive=false
     
     # Parse options
     while [[ $# -gt 0 ]]; do
@@ -688,6 +853,10 @@ main() {
                 talos_version="$2"
                 shift 2
                 ;;
+            --interactive|-i)
+                interactive=true
+                shift
+                ;;
             --help)
                 usage
                 ;;
@@ -697,6 +866,21 @@ main() {
                 ;;
         esac
     done
+    
+    # Run interactive mode if requested
+    if [[ "$interactive" == true ]]; then
+        interactive_mode "$site_code" "$cluster_name"
+        
+        # Use values from interactive mode
+        control_planes="$INTERACTIVE_CP"
+        workers="$INTERACTIVE_WORKERS"
+        cpu="$INTERACTIVE_CPU"
+        memory="$INTERACTIVE_MEMORY"
+        disk="$INTERACTIVE_DISK"
+        size_class="$INTERACTIVE_SIZE"
+        k8s_version="$INTERACTIVE_K8S"
+        talos_version="$INTERACTIVE_TALOS"
+    fi
     
     # Load site metadata to get platform
     load_site_metadata "$site_code" || exit 1
@@ -722,35 +906,38 @@ main() {
     local total_memory_gb=$((memory * total_nodes / 1024))
     local total_disk=$((disk * total_nodes))
     
-    echo -e "${GREEN}╔════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${GREEN}║        Talos Hybrid GitOps - New Cluster Setup            ║${NC}"
-    echo -e "${GREEN}╚════════════════════════════════════════════════════════════╝${NC}"
-    echo ""
-    echo -e "${BLUE}Site:${NC}            $site_code ($(get_environment "$site_code"))"
-    echo -e "${BLUE}Cluster Name:${NC}    $cluster_name"
-    echo -e "${BLUE}Full Name:${NC}       $full_cluster_name"
-    echo -e "${BLUE}Platform:${NC}        $platform"
-    echo -e "${BLUE}Size Class:${NC}      $size_class"
-    echo ""
-    echo -e "${BLUE}Topology:${NC}"
-    echo -e "  Control Planes: $control_planes"
-    echo -e "  Workers:        $workers"
-    echo -e "  Total Nodes:    $total_nodes"
-    echo ""
-    echo -e "${BLUE}Node Resources:${NC}"
-    echo -e "  CPU:            $cpu cores"
-    echo -e "  Memory:         $memory MB ($((memory / 1024)) GB)"
-    echo -e "  Disk:           $disk GB"
-    echo ""
-    echo -e "${BLUE}Total Resources:${NC}"
-    echo -e "  CPU:            $total_cpu cores"
-    echo -e "  Memory:         $((memory * total_nodes)) MB ($total_memory_gb GB)"
-    echo -e "  Disk:           $total_disk GB"
-    echo ""
-    echo -e "${BLUE}Versions:${NC}"
-    echo -e "  Kubernetes:     $k8s_version"
-    echo -e "  Talos:          $talos_version"
-    echo ""
+    # Skip summary in interactive mode (already shown)
+    if [[ "$interactive" != true ]]; then
+        echo -e "${GREEN}╔════════════════════════════════════════════════════════════╗${NC}"
+        echo -e "${GREEN}║        Talos Hybrid GitOps - New Cluster Setup            ║${NC}"
+        echo -e "${GREEN}╚════════════════════════════════════════════════════════════╝${NC}"
+        echo ""
+        echo -e "${BLUE}Site:${NC}            $site_code ($(get_environment "$site_code"))"
+        echo -e "${BLUE}Cluster Name:${NC}    $cluster_name"
+        echo -e "${BLUE}Full Name:${NC}       $full_cluster_name"
+        echo -e "${BLUE}Platform:${NC}        $platform"
+        echo -e "${BLUE}Size Class:${NC}      $size_class"
+        echo ""
+        echo -e "${BLUE}Topology:${NC}"
+        echo -e "  Control Planes: $control_planes"
+        echo -e "  Workers:        $workers"
+        echo -e "  Total Nodes:    $total_nodes"
+        echo ""
+        echo -e "${BLUE}Node Resources:${NC}"
+        echo -e "  CPU:            $cpu cores"
+        echo -e "  Memory:         $memory MB ($((memory / 1024)) GB)"
+        echo -e "  Disk:           $disk GB"
+        echo ""
+        echo -e "${BLUE}Total Resources:${NC}"
+        echo -e "  CPU:            $total_cpu cores"
+        echo -e "  Memory:         $((memory * total_nodes)) MB ($total_memory_gb GB)"
+        echo -e "  Disk:           $total_disk GB"
+        echo ""
+        echo -e "${BLUE}Versions:${NC}"
+        echo -e "  Kubernetes:     $k8s_version"
+        echo -e "  Talos:          $talos_version"
+        echo ""
+    fi
     
     validate_site_code "$site_code"
     
@@ -758,10 +945,11 @@ main() {
     
     validate_cluster_name "$cluster_name"
     
-    # Check if cluster already exists
+    # Check if cluster already exists (skip if interactive mode already handled it)
     local yaml_file="${PROJECT_ROOT}/clusters/omni/${site_code}/${cluster_name}.yaml"
-    if [[ -f "$yaml_file" ]]; then
+    if [[ -f "$yaml_file" && "$interactive" != true ]]; then
         error "Cluster configuration already exists: $yaml_file"
+        error "Use --interactive/-i to update existing cluster"
         exit 1
     fi
     
