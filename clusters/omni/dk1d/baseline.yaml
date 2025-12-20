@@ -2,7 +2,7 @@
 # Cluster: dk1d-baseline
 # Site: dk1d
 # Environment: development
-# Created: Sat Dec 20 00:04:37 UTC 2025
+# Created: Sat Dec 20 02:34:39 UTC 2025
 #
 # Apply instructions:
 #   ./scripts/apply-cluster.sh baseline.yaml
@@ -38,8 +38,8 @@ metadata:
   type: Clusters.omni.sidero.dev
   id: dk1d-baseline
 spec:
-  kubernetesversion: 1.29.0
-  talosversion: 1.9.5
+  kubernetesversion: 1.30.0
+  talosversion: 1.11.5
   features:
     enableworkloadproxy: true
     diskencryption: false
@@ -165,15 +165,15 @@ spec:
 # Per-node resources:
 # - CPU: 2 cores
 # - Memory: 4096 MB
-# - Disk: 100 GB
+# - Disk: 50 GB
 #
 # Total resources:
 # - CPU: 8 cores
 # - Memory: 16384 MB (16 GB)
-# - Disk: 400 GB
+# - Disk: 200 GB
 
 # Update terraform/vsphere/terraform.tfvars.dk1d:
 #   node_count     = 4
 #   node_cpu       = 2
 #   node_memory    = 4096
-#   node_disk_size = 100
+#   node_disk_size = 50

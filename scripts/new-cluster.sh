@@ -519,7 +519,7 @@ main() {
     local cpu=4
     local memory=8192
     local disk=50
-    local k8s_version="v1.32.0"
+    local k8s_version="v1.30.0"
     local talos_version="v1.11.5"
     
     # Parse options
