@@ -283,10 +283,10 @@ prompt_with_default() {
     local varname=$3
     
     if [[ -n "$default" ]]; then
-        read -p "${prompt} [${default}]: " value
+        read -r -p "${prompt} [${default}]: " value </dev/tty
         eval "$varname=\"\${value:-$default}\""
     else
-        read -p "${prompt}: " value
+        read -r -p "${prompt}: " value </dev/tty
         eval "$varname=\"$value\""
     fi
 }
@@ -308,7 +308,7 @@ interactive_mode() {
         parse_existing_cluster "$yaml_file"
         
         echo ""
-        read -p "Use existing values as defaults? [Y/n]: " use_existing
+        read -r -p "Use existing values as defaults? [Y/n]: " use_existing </dev/tty
         if [[ "$use_existing" =~ ^[Nn] ]]; then
             EXISTING_CP=""
             EXISTING_WORKERS=""
