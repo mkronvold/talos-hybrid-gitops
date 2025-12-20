@@ -1,30 +1,68 @@
-# Session State - 2025-12-17
+# Session State - 2025-12-20
 
 ## What Was Accomplished
 
 Created a complete **Multi-Site Hybrid GitOps Platform** for Talos Kubernetes cluster management with comprehensive automation, site metadata tracking, and full support for both vSphere and Proxmox hypervisors.
 
-### Latest Session (2025-12-17)
+### Latest Session (2025-12-20)
 
-**Created dk1d Site Infrastructure:**
-- Created site `dk1d` (Denmark Zone 1 Dev) on Proxmox platform
-- Generated baseline cluster configuration with 3 control planes + 3 workers
-- Created Terraform configurations for Proxmox infrastructure and jumphost
+**Fixed Omni Cluster YAML Format and Apply Issues:**
+- Fixed critical YAML format issues preventing cluster deployment
+- Cluster YAML files were using incorrect flat structure instead of COSI format
+- Created `apply-cluster.sh` helper script to work around omnictl multi-document YAML limitations
+- Updated all cluster generation and deployment scripts to use correct format
+- Successfully tested complete end-to-end workflow
 
-**Updated Omni Credentials System:**
-- Replaced `OMNI_API_KEY` with `OMNI_SERVICE_ACCOUNT_KEY` throughout all documentation
-- Updated `deploy-infrastructure.sh` to check for correct environment variable
-- Simplified credential setup to use `source ~/omni.sh` approach
-- Updated GitHub Actions workflows to use service account authentication
-- Updated all example commands in 18 files across documentation and scripts
+**Changes Made:**
+1. **Fixed YAML Format Issues:**
+   - Converted to proper COSI format with `metadata:` and `spec:` sections
+   - Removed "v" prefix from version numbers (1.29.0 vs v1.29.0)
+   - Added MachineClass resources for control-plane and worker nodes
+   - Added required labels to MachineSets (`omni.sidero.dev/cluster`, role labels)
+
+2. **Created apply-cluster.sh Helper Script:**
+   - Splits multi-document YAML into individual resources
+   - Applies each resource separately with progress output
+   - Validates and verifies all resources created
+   - Idempotent and safe to re-run
+   - Works around omnictl panic with multi-document YAML files
+
+3. **Updated Scripts:**
+   - `new-cluster.sh` - Generates correct COSI format YAML
+   - `deploy-infrastructure.sh` - Uses apply-cluster.sh instead of direct omnictl apply
+   - Added help flag support (-h, --help) to deploy-infrastructure.sh
+
+4. **Regenerated Configurations:**
+   - `clusters/omni/dk1d/baseline.yaml` - Proper COSI format with all resources
+   - Contains: 2 MachineClasses, 1 Cluster, 2 MachineSets
+   - All resources properly formatted and labeled
+
+**Technical Details:**
+- Discovered omnictl apply has issues with multi-document YAML containing MachineSets
+- MachineSets require MachineClasses to exist first
+- Proper labels required: `omni.sidero.dev/cluster` and role labels in metadata
+- Version format must be without "v" prefix (API requirement)
+- Resources must be applied in order: MachineClasses → Cluster → MachineSets
+
+**Testing Results:**
+- ✅ apply-cluster.sh successfully applies all 5 resources
+- ✅ Idempotent - can run multiple times safely
+- ✅ deploy-infrastructure.sh integration tested
+- ✅ Complete workflow verified end-to-end
+- ✅ All resources create properly with correct dependencies
+
+**Commit:** `3d97689` - Fix Omni cluster YAML format and add apply-cluster.sh helper
+- 5 files changed: +315 insertions, -122 deletions
+- New file: scripts/apply-cluster.sh (124 lines)
+- Modified: new-cluster.sh, deploy-infrastructure.sh, baseline.yaml, README.md
 
 ## Repository Details
 
 - **Location**: `~/talos-hybrid-gitops`
 - **GitHub**: https://github.com/mkronvold/talos-hybrid-gitops
 - **Branch**: main
-- **Total Commits**: 15 commits pushed successfully
-- **Last Session**: 2025-12-17T03:19:05Z
+- **Total Commits**: 22 commits pushed successfully
+- **Last Session**: 2025-12-20T00:11:00Z
 
 ## Architecture Overview
 
@@ -75,9 +113,10 @@ The hybrid approach uses three distinct layers:
 │   ├── install-node-copilot.sh      # Install NVM, Node.js, Copilot CLI
 │   ├── new-site.sh                  # Create new site with metadata
 │   ├── modify-site.sh               # Safely modify site metadata
-│   ├── new-cluster.sh               # Create Omni cluster config
+│   ├── new-cluster.sh               # Create Omni cluster config (COSI format)
+│   ├── apply-cluster.sh             # Apply multi-document YAML (NEW)
 │   ├── deploy-jumphost.sh           # Deploy jumphost (platform auto-detected)
-│   └── deploy-infrastructure.sh     # Deploy infrastructure (platform auto-detected)
+│   └── deploy-infrastructure.sh     # Deploy infrastructure (uses apply-cluster.sh)
 ├── docs/
 │   ├── QUICKSTART.md                # Quick start guide
 │   └── SITE-METADATA.md             # Site metadata system docs
@@ -137,7 +176,7 @@ source ~/omni.sh
 # 8. Deploy jumphost
 ./scripts/deploy-jumphost.sh ny1d
 
-# 9. Deploy infrastructure and cluster
+# 9. Deploy infrastructure and cluster (uses apply-cluster.sh internally)
 ./scripts/deploy-infrastructure.sh ny1d clusters/omni/ny1d/web.yaml
 
 # 10. Get kubeconfig
@@ -216,7 +255,7 @@ omnictl get machines
 
 # 3. Apply cluster configuration
 cd ../../
-omnictl apply -f clusters/omni/prod-vsphere.yaml
+./scripts/apply-cluster.sh clusters/omni/prod-vsphere.yaml
 
 # 4. Get kubeconfig
 omnictl kubeconfig prod-vsphere > kubeconfig
@@ -247,12 +286,13 @@ flux bootstrap github \
 - ✅ Jumphost deployment for both platforms
 - ✅ Identical cloud-init tooling on both
 
-### Automation Scripts (7 total)
+### Automation Scripts (8 total)
 - ✅ **new-site.sh** - Create site with platform tracking
 - ✅ **modify-site.sh** - Safely modify site metadata
-- ✅ **new-cluster.sh** - Generate Omni cluster YAML
+- ✅ **new-cluster.sh** - Generate Omni cluster YAML (COSI format)
+- ✅ **apply-cluster.sh** - Apply multi-document YAML reliably (NEW)
 - ✅ **deploy-jumphost.sh** - Deploy management VM (platform auto-detected)
-- ✅ **deploy-infrastructure.sh** - Deploy VMs and clusters (platform auto-detected)
+- ✅ **deploy-infrastructure.sh** - Deploy VMs and clusters (uses apply-cluster.sh)
 - ✅ **install-dependencies.sh** - Install tools (uses Homebrew sidero-tools if available, otherwise manual install)
 - ✅ **install-node-copilot.sh** - Install NVM, Node.js, GitHub Copilot CLI
 
@@ -272,11 +312,14 @@ flux bootstrap github \
 - ✅ Example configurations and documentation
 
 ### Cluster Management
-- ✅ Omni cluster YAML generation
+- ✅ Omni cluster YAML generation (proper COSI format)
+- ✅ MachineClass resources for machine selection
 - ✅ Configurable topology (control planes + workers)
 - ✅ Per-node resource settings
 - ✅ Automatic resource calculations
 - ✅ Platform and site labeling for machine allocation
+- ✅ Required metadata labels (cluster, role)
+- ✅ Reliable multi-document YAML application
 
 ### Documentation
 - ✅ Comprehensive scripts/README.md (all 7 scripts)
@@ -502,17 +545,92 @@ User encountered "Inconsistent dependency lock file" error when running `terrafo
 - ✅ Prevents common "missing provider" errors
 - ✅ Consistent documentation across all Terraform modules
 
-## Git Status
+### Session 7: Fix Omni Cluster YAML Format
+**Date**: 2025-12-20 (00:00 - 00:11 UTC)  
+**Duration**: ~11 minutes  
+**Commits**: 1 commit  
+**Status**: ✅ Completed  
+**Final Commit**: 3d97689 - Fix Omni cluster YAML format and add apply-cluster.sh helper
 
+**Issue Reported:**
+User encountered YAML unmarshal error when trying to apply baseline.yaml:
 ```
-Repository: https://github.com/mkronvold/talos-hybrid-gitops
-Branch: main
-Last Commit: (pending) - Update documentation with terraform init requirements
-Total Commits: 21 (after commit)
-Working Tree: Modified (SESSION_STATE.md and 5 README/WORKFLOW docs) 📝
-Remote Status: Will be up to date after push ⏳
-Session End: 2025-12-16T20:40:00Z ✅
+Error: yaml: unmarshal errors:
+  line 7: expected 4 elements node, got 14
 ```
+
+**Root Cause:**
+The cluster YAML files generated by new-cluster.sh were in incorrect format:
+- Used flat structure instead of COSI format (metadata/spec)
+- Had "v" prefix on versions (e.g., v1.29.0 instead of 1.29.0)
+- Missing MachineClass resources
+- Missing required labels on MachineSets
+- omnictl apply panics with multi-document YAML containing certain resource types
+
+**Changes Made:**
+1. ✅ Created **apply-cluster.sh** helper script (124 lines)
+   - Splits multi-document YAML into individual resources
+   - Applies each resource separately with progress output
+   - Validates and verifies all resources created
+   - Idempotent and safe to re-run
+   - Works around omnictl multi-document YAML limitations
+
+2. ✅ Updated **new-cluster.sh** to generate correct COSI format
+   - Proper `metadata:` and `spec:` structure
+   - Removed "v" prefix from version numbers
+   - Added MachineClass resources for control-plane and worker nodes
+   - Added required labels to MachineSets:
+     - `omni.sidero.dev/cluster: <cluster-name>`
+     - `omni.sidero.dev/role-controlplane: ""` or `omni.sidero.dev/role-worker: ""`
+   - Cluster-specific MachineClasses with site/platform labels
+
+3. ✅ Updated **deploy-infrastructure.sh**
+   - Changed from `omnictl apply -f` to using `apply-cluster.sh`
+   - Added help flag support (-h, --help)
+   - Updated manual cluster configuration instructions
+
+4. ✅ Regenerated **clusters/omni/dk1d/baseline.yaml**
+   - Proper COSI format with all resources:
+     - 2 MachineClasses (dk1d-baseline-control-plane, dk1d-baseline-worker)
+     - 1 Cluster (dk1d-baseline)
+     - 2 MachineSets (control-planes, workers)
+   - All resources properly formatted and labeled
+
+**Resources Created (in order):**
+1. MachineClasses - Define which machines match control-plane/worker roles
+2. Cluster - Main cluster resource with K8s/Talos versions
+3. MachineSets - Define machine counts and configuration patches
+
+**Testing Results:**
+- ✅ apply-cluster.sh successfully applies all 5 resources
+- ✅ Idempotent - can run multiple times safely
+- ✅ Works from any directory
+- ✅ deploy-infrastructure.sh integration tested
+- ✅ Complete workflow verified end-to-end
+- ✅ All resources create properly with correct dependencies
+
+**Technical Details:**
+- Discovered omnictl apply has issues with multi-document YAML
+- MachineSets require MachineClasses to exist first
+- Proper labels required in metadata section
+- Version format must be without "v" prefix (API requirement)
+- Resources must be applied in specific order
+
+**Files Changed:**
+- scripts/apply-cluster.sh (NEW, +124 lines)
+- scripts/new-cluster.sh (Modified, +73/-77 lines)
+- scripts/deploy-infrastructure.sh (Modified, +9/-3 lines)
+- clusters/omni/dk1d/baseline.yaml (Modified, +106/-42 lines)
+- clusters/omni/dk1d/README.md (Modified, +3 lines)
+
+**Benefits:**
+1. ✅ Reliable cluster deployments - works around omnictl limitations
+2. ✅ Better visibility - shows progress for each resource
+3. ✅ Proper error handling - validates each resource individually
+4. ✅ Idempotent operations - safe to re-run
+5. ✅ Correct YAML format - proper COSI structure
+6. ✅ All required resources - MachineClasses, Cluster, MachineSets
+7. ✅ Proper dependencies - resources applied in correct order
 
 ## Key Questions Answered This Session
 
@@ -591,12 +709,12 @@ All automation is in place for multi-site, multi-platform Talos Kubernetes deplo
 
 ## Session Statistics
 
-**Time Investment**: ~3 hours  
-**Scripts Created**: 7 automation scripts  
+**Time Investment**: ~4 hours total across all sessions  
+**Scripts Created**: 8 automation scripts  
 **Terraform Modules**: 4 platform-specific modules  
 **Documentation Pages**: 3 comprehensive guides  
-**Lines of Code**: ~3,000+ lines (scripts + Terraform + docs)  
-**Git Commits**: 15 total commits  
+**Lines of Code**: ~3,500+ lines (scripts + Terraform + docs)  
+**Git Commits**: 22 total commits  
 **Production Ready**: ✅ Yes
 
 **Capabilities Delivered**:
@@ -608,5 +726,9 @@ All automation is in place for multi-site, multi-platform Talos Kubernetes deplo
 - ✅ Comprehensive documentation
 - ✅ Safe metadata management
 - ✅ Terraform workspace isolation
+- ✅ Proper COSI format for Omni resources
+- ✅ Reliable multi-document YAML application
+- ✅ MachineClass resource management
+- ✅ Correct resource dependencies and labels
 
 **Ready for**: Production multi-site, multi-platform Kubernetes deployments! 🎉
