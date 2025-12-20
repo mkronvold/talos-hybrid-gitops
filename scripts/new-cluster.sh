@@ -94,7 +94,7 @@ ${GREEN}Options:${NC}
   --memory <mb>          Memory in MB per node (default: 8192)
   --disk <gb>            Disk size in GB per node (default: 50)
   --size-class <class>   Size class: tiny, small, medium, large, xlarge (auto-detected if not specified)
-  --k8s-version <ver>    Kubernetes version (default: v1.32.0)
+  --k8s-version <ver>    Kubernetes version (default: v1.30.0)
   --talos-version <ver>  Talos version (default: v1.11.5)
   --interactive, -i      Interactive mode with prompts
   --help                 Show this help message
@@ -398,7 +398,7 @@ interactive_mode() {
     
     # Prompt for versions
     echo -e "${BLUE}Software Versions:${NC}"
-    prompt_with_default "Kubernetes version" "v1.32.0" k8s_version
+    prompt_with_default "Kubernetes version" "v1.30.0" k8s_version
     prompt_with_default "Talos version" "v1.11.5" talos_version
     echo ""
     
