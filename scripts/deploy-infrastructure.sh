@@ -62,12 +62,9 @@ ${GREEN}Arguments:${NC}
   site-code     Site identifier (e.g., ny1d, sf2p, la1s)
   cluster-file  (Optional) Path to Omni cluster YAML configuration
 
-${GREEN}Options:${NC}
-  --update-tfvars        Update terraform.tfvars.{site} with accumulated totals
-
 ${GREEN}Note:${NC}
   Platform (vsphere/proxmox) is automatically detected from site configuration.
-  --update-tfvars calculates totals across ALL clusters for the site:
+  terraform.tfvars.{site} is automatically updated with accumulated totals:
     - node_count: sum of all cluster nodes
     - cpu/memory/disk: maximum values across all clusters
 
@@ -446,22 +443,6 @@ main() {
     
     local site_code=$1
     local cluster_file=${2:-}
-    local update_tfvars=false
-    
-    # Parse options
-    shift 2 2>/dev/null || shift $#
-    while [[ $# -gt 0 ]]; do
-        case $1 in
-            --update-tfvars)
-                update_tfvars=true
-                shift
-                ;;
-            *)
-                error "Unknown option: $1"
-                usage
-                ;;
-        esac
-    done
     
     # Convert site code to lowercase
     site_code=$(echo "$site_code" | tr '[:upper:]' '[:lower:]')
@@ -485,18 +466,19 @@ main() {
     validate_site_code "$site_code"
     check_prerequisites
     
-    # Update tfvars from cluster file if requested
-    if [[ "$update_tfvars" == true ]] && [[ -n "$cluster_file" ]]; then
-        log "=== Updating Terraform Configuration ==="
-        local config_values=$(extract_cluster_config "$cluster_file")
-        if [[ $? -eq 0 ]]; then
-            read -r node_count cpu memory disk <<< "$config_values"
-            update_terraform_tfvars "$site_code" "$platform" "$node_count" "$cpu" "$memory" "$disk"
-            echo ""
-        else
-            warn "Skipping tfvars update due to extraction errors"
-        fi
+    # Always update tfvars from all cluster files
+    log "=== Updating Terraform Configuration ==="
+    info "Calculating total requirements across all clusters for site $site_code..."
+    local totals=$(calculate_site_totals "$site_code")
+    read -r node_count cpu memory disk <<< "$totals"
+    
+    if [[ $node_count -gt 0 ]]; then
+        update_terraform_tfvars "$site_code" "$platform" "$node_count" "$cpu" "$memory" "$disk" "true"
+    else
+        warn "No cluster configurations found for site $site_code"
+        warn "Skipping tfvars update"
     fi
+    echo ""
     
     # Step 1: Deploy infrastructure with Terraform
     log "=== Step 1: Deploy Infrastructure ==="

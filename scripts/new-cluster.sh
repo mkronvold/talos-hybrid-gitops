@@ -67,12 +67,11 @@ ${GREEN}Options:${NC}
   --disk <gb>            Disk size in GB per node (default: 50)
   --k8s-version <ver>    Kubernetes version (default: v1.32.0)
   --talos-version <ver>  Talos version (default: v1.11.5)
-  --update-tfvars        Update terraform.tfvars.{site} with accumulated totals
   --help                 Show this help message
 
 ${GREEN}Note:${NC}
   Platform is automatically detected from site configuration.
-  --update-tfvars calculates totals across ALL clusters for the site:
+  terraform.tfvars.{site} is automatically updated with accumulated totals:
     - node_count: sum of all cluster nodes
     - cpu/memory/disk: maximum values across all clusters
 
@@ -522,7 +521,6 @@ main() {
     local disk=50
     local k8s_version="v1.32.0"
     local talos_version="v1.11.5"
-    local update_tfvars=false
     
     # Parse options
     while [[ $# -gt 0 ]]; do
@@ -554,10 +552,6 @@ main() {
             --talos-version)
                 talos_version="$2"
                 shift 2
-                ;;
-            --update-tfvars)
-                update_tfvars=true
-                shift
                 ;;
             --help)
                 usage
@@ -628,12 +622,10 @@ main() {
     # Update site README
     update_site_readme "$site_code" "$cluster_name" "$control_planes" "$workers"
     
-    # Update terraform.tfvars if requested
-    if [[ "$update_tfvars" == true ]]; then
-        echo ""
-        log "Updating Terraform configuration..."
-        update_terraform_tfvars "$site_code" "$platform" "$total_nodes" "$cpu" "$memory" "$disk" "true"
-    fi
+    # Always update terraform.tfvars with accumulated totals
+    echo ""
+    log "Updating Terraform configuration..."
+    update_terraform_tfvars "$site_code" "$platform" "$total_nodes" "$cpu" "$memory" "$disk" "true"
     
     echo ""
     echo -e "${GREEN}╔════════════════════════════════════════════════════════════╗${NC}"
@@ -645,23 +637,10 @@ main() {
     echo ""
     log "Next steps:"
     echo ""
-    if [[ "$update_tfvars" != true ]]; then
-        log "  1. Update Terraform configuration with node count and resources:"
-        log "     ${GREEN}vim terraform/vsphere/terraform.tfvars.${site_code}${NC}"
-        log ""
-        log "     Set these values:"
-        log "       ${YELLOW}node_count     = ${total_nodes}${NC}"
-        log "       ${YELLOW}node_cpu       = ${cpu}${NC}"
-        log "       ${YELLOW}node_memory    = ${memory}${NC}"
-        log "       ${YELLOW}node_disk_size = ${disk}${NC}"
-        echo ""
-        log "  2. Review cluster configuration:"
-    else
-        log "  1. Review terraform configuration:"
-        log "     ${GREEN}cat terraform/${platform}/terraform.tfvars.${site_code}${NC}"
-        echo ""
-        log "  2. Review cluster configuration:"
-    fi
+    log "  1. Review terraform configuration:"
+    log "     ${GREEN}cat terraform/${platform}/terraform.tfvars.${site_code}${NC}"
+    echo ""
+    log "  2. Review cluster configuration:"
     log "     ${GREEN}cat $yaml_file${NC}"
     echo ""
     log "  3. Deploy infrastructure and cluster:"
