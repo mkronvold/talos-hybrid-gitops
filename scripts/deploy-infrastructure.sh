@@ -280,14 +280,18 @@ update_terraform_tfvars() {
     if [[ "$accumulate" == "true" ]]; then
         info "Calculating total requirements across all clusters for site $site_code..."
         local totals=$(calculate_site_totals "$site_code")
-        read -r total_nodes cpu memory disk <<< "$totals"
+        local calc_nodes calc_cpu calc_memory calc_disk
+        read -r calc_nodes calc_cpu calc_memory calc_disk <<< "$totals"
         
-        if [[ $total_nodes -eq 0 ]]; then
+        if [[ $calc_nodes -eq 0 ]]; then
             warn "No cluster configurations found, using provided values"
-            total_nodes=$3
-            cpu=$4
-            memory=$5
-            disk=$6
+            # Keep the provided values as-is
+        else
+            # Use calculated values
+            total_nodes=$calc_nodes
+            cpu=$calc_cpu
+            memory=$calc_memory
+            disk=$calc_disk
         fi
     fi
     
