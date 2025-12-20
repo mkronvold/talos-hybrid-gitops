@@ -60,13 +60,14 @@ ${GREEN}Arguments:${NC}
   cluster-name   Cluster name (e.g., web, data, ml)
 
 ${GREEN}Options:${NC}
-  --control-planes <n>   Number of control plane nodes (default: 3)
+  --control-planes <n>   Number of control plane nodes (default: 1)
   --workers <n>          Number of worker nodes (default: 3)
   --cpu <n>              CPU cores per node (default: 4)
   --memory <mb>          Memory in MB per node (default: 8192)
-  --disk <gb>            Disk size in GB per node (default: 100)
-  --k8s-version <ver>    Kubernetes version (default: v1.29.0)
-  --talos-version <ver>  Talos version (default: v1.9.5)
+  --disk <gb>            Disk size in GB per node (default: 50)
+  --k8s-version <ver>    Kubernetes version (default: v1.32.0)
+  --talos-version <ver>  Talos version (default: v1.11.5)
+  --update-tfvars        Update terraform.tfvars.{site} with node values
   --help                 Show this help message
 
 ${GREEN}Note:${NC}
@@ -384,6 +385,63 @@ update_site_readme() {
     log "✓ Updated: $readme_file"
 }
 
+# Update terraform.tfvars with node configuration
+update_terraform_tfvars() {
+    local site_code=$1
+    local platform=$2
+    local total_nodes=$3
+    local cpu=$4
+    local memory=$5
+    local disk=$6
+    
+    local terraform_dir="${PROJECT_ROOT}/terraform/${platform}"
+    local tfvars_file="${terraform_dir}/terraform.tfvars.${site_code}"
+    
+    if [[ ! -f "$tfvars_file" ]]; then
+        warn "Terraform tfvars file not found: $tfvars_file"
+        warn "Cannot update node configuration automatically"
+        return 1
+    fi
+    
+    log "Updating Terraform configuration: $tfvars_file"
+    
+    # Update node_count
+    if grep -q "^node_count" "$tfvars_file"; then
+        sed -i "s/^node_count[[:space:]]*=.*/node_count     = ${total_nodes}/" "$tfvars_file"
+    else
+        echo "node_count     = ${total_nodes}" >> "$tfvars_file"
+    fi
+    
+    # Update node_cpu
+    if grep -q "^node_cpu" "$tfvars_file"; then
+        sed -i "s/^node_cpu[[:space:]]*=.*/node_cpu       = ${cpu}/" "$tfvars_file"
+    else
+        echo "node_cpu       = ${cpu}" >> "$tfvars_file"
+    fi
+    
+    # Update node_memory
+    if grep -q "^node_memory" "$tfvars_file"; then
+        sed -i "s/^node_memory[[:space:]]*=.*/node_memory    = ${memory}/" "$tfvars_file"
+    else
+        echo "node_memory    = ${memory}" >> "$tfvars_file"
+    fi
+    
+    # Update node_disk_size
+    if grep -q "^node_disk_size" "$tfvars_file"; then
+        sed -i "s/^node_disk_size[[:space:]]*=.*/node_disk_size = ${disk}/" "$tfvars_file"
+    else
+        echo "node_disk_size = ${disk}" >> "$tfvars_file"
+    fi
+    
+    log "✓ Updated Terraform variables:"
+    log "    node_count     = ${total_nodes}"
+    log "    node_cpu       = ${cpu}"
+    log "    node_memory    = ${memory}"
+    log "    node_disk_size = ${disk}"
+    
+    return 0
+}
+
 # Main function
 main() {
     # Parse arguments
@@ -402,13 +460,14 @@ main() {
     cluster_name=$(echo "$cluster_name" | tr '[:upper:]' '[:lower:]')
     
     # Default values
-    local control_planes=3
+    local control_planes=1
     local workers=3
     local cpu=4
     local memory=8192
-    local disk=100
-    local k8s_version="v1.29.0"
-    local talos_version="v1.9.5"
+    local disk=50
+    local k8s_version="v1.32.0"
+    local talos_version="v1.11.5"
+    local update_tfvars=false
     
     # Parse options
     while [[ $# -gt 0 ]]; do
@@ -440,6 +499,10 @@ main() {
             --talos-version)
                 talos_version="$2"
                 shift 2
+                ;;
+            --update-tfvars)
+                update_tfvars=true
+                shift
                 ;;
             --help)
                 usage
@@ -510,6 +573,13 @@ main() {
     # Update site README
     update_site_readme "$site_code" "$cluster_name" "$control_planes" "$workers"
     
+    # Update terraform.tfvars if requested
+    if [[ "$update_tfvars" == true ]]; then
+        echo ""
+        log "Updating Terraform configuration..."
+        update_terraform_tfvars "$site_code" "$platform" "$total_nodes" "$cpu" "$memory" "$disk"
+    fi
+    
     echo ""
     echo -e "${GREEN}╔════════════════════════════════════════════════════════════╗${NC}"
     echo -e "${GREEN}║           Cluster Configuration Created!                  ║${NC}"
@@ -520,16 +590,23 @@ main() {
     echo ""
     log "Next steps:"
     echo ""
-    log "  1. Update Terraform configuration with node count and resources:"
-    log "     ${GREEN}vim terraform/vsphere/terraform.tfvars.${site_code}${NC}"
-    log ""
-    log "     Set these values:"
-    log "       ${YELLOW}node_count     = ${total_nodes}${NC}"
-    log "       ${YELLOW}node_cpu       = ${cpu}${NC}"
-    log "       ${YELLOW}node_memory    = ${memory}${NC}"
-    log "       ${YELLOW}node_disk_size = ${disk}${NC}"
-    echo ""
-    log "  2. Review cluster configuration:"
+    if [[ "$update_tfvars" != true ]]; then
+        log "  1. Update Terraform configuration with node count and resources:"
+        log "     ${GREEN}vim terraform/vsphere/terraform.tfvars.${site_code}${NC}"
+        log ""
+        log "     Set these values:"
+        log "       ${YELLOW}node_count     = ${total_nodes}${NC}"
+        log "       ${YELLOW}node_cpu       = ${cpu}${NC}"
+        log "       ${YELLOW}node_memory    = ${memory}${NC}"
+        log "       ${YELLOW}node_disk_size = ${disk}${NC}"
+        echo ""
+        log "  2. Review cluster configuration:"
+    else
+        log "  1. Review terraform configuration:"
+        log "     ${GREEN}cat terraform/${platform}/terraform.tfvars.${site_code}${NC}"
+        echo ""
+        log "  2. Review cluster configuration:"
+    fi
     log "     ${GREEN}cat $yaml_file${NC}"
     echo ""
     log "  3. Deploy infrastructure and cluster:"

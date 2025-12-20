@@ -54,13 +54,16 @@ load_site_metadata() {
 # Usage information
 usage() {
     cat << EOF
-${GREEN}Usage:${NC} $0 <site-code> [cluster-file]
+${GREEN}Usage:${NC} $0 <site-code> [cluster-file] [options]
 
 ${YELLOW}Deploy infrastructure and Talos clusters for a specific site.${NC}
 
 ${GREEN}Arguments:${NC}
   site-code     Site identifier (e.g., ny1d, sf2p, la1s)
   cluster-file  (Optional) Path to Omni cluster YAML configuration
+
+${GREEN}Options:${NC}
+  --update-tfvars        Update terraform.tfvars.{site} from cluster file
 
 ${GREEN}Note:${NC}
   Platform (vsphere/proxmox) is automatically detected from site configuration.
@@ -153,6 +156,98 @@ check_prerequisites() {
     fi
     
     log "Prerequisites check passed"
+}
+
+# Extract node configuration from cluster YAML
+extract_cluster_config() {
+    local cluster_file=$1
+    
+    if [[ ! -f "$cluster_file" ]]; then
+        error "Cluster file not found: $cluster_file"
+        return 1
+    fi
+    
+    log "Extracting configuration from: $(basename "$cluster_file")"
+    
+    # Extract values from comments at the end of the cluster file
+    local node_count=$(grep "^# - Total Nodes:" "$cluster_file" | awk '{print $5}')
+    local cpu=$(grep "^# - CPU:" "$cluster_file" | awk '{print $4}')
+    local memory=$(grep "^# - Memory:" "$cluster_file" | awk '{print $4}')
+    local disk=$(grep "^# - Disk:" "$cluster_file" | awk '{print $4}')
+    
+    # Validate extracted values
+    if [[ -z "$node_count" ]] || [[ -z "$cpu" ]] || [[ -z "$memory" ]] || [[ -z "$disk" ]]; then
+        warn "Could not extract all values from cluster file"
+        info "Expected format in cluster file comments:"
+        info "# - Total Nodes: <count>"
+        info "# - CPU: <cores> cores"
+        info "# - Memory: <mb> MB"
+        info "# - Disk: <gb> GB"
+        return 1
+    fi
+    
+    echo "$node_count $cpu $memory $disk"
+    return 0
+}
+
+# Update terraform.tfvars with node configuration
+update_terraform_tfvars() {
+    local site_code=$1
+    local platform=$2
+    local total_nodes=$3
+    local cpu=$4
+    local memory=$5
+    local disk=$6
+    
+    local terraform_dir="${PROJECT_ROOT}/terraform/${platform}"
+    local tfvars_file="${terraform_dir}/terraform.tfvars.${site_code}"
+    
+    if [[ ! -f "$tfvars_file" ]]; then
+        warn "Terraform tfvars file not found: $tfvars_file"
+        warn "Cannot update node configuration automatically"
+        return 1
+    fi
+    
+    log "Updating Terraform configuration: $tfvars_file"
+    
+    # Create backup
+    cp "$tfvars_file" "${tfvars_file}.backup-$(date +%Y%m%d-%H%M%S)"
+    
+    # Update node_count
+    if grep -q "^node_count" "$tfvars_file"; then
+        sed -i "s/^node_count[[:space:]]*=.*/node_count     = ${total_nodes}/" "$tfvars_file"
+    else
+        echo "node_count     = ${total_nodes}" >> "$tfvars_file"
+    fi
+    
+    # Update node_cpu
+    if grep -q "^node_cpu" "$tfvars_file"; then
+        sed -i "s/^node_cpu[[:space:]]*=.*/node_cpu       = ${cpu}/" "$tfvars_file"
+    else
+        echo "node_cpu       = ${cpu}" >> "$tfvars_file"
+    fi
+    
+    # Update node_memory
+    if grep -q "^node_memory" "$tfvars_file"; then
+        sed -i "s/^node_memory[[:space:]]*=.*/node_memory    = ${memory}/" "$tfvars_file"
+    else
+        echo "node_memory    = ${memory}" >> "$tfvars_file"
+    fi
+    
+    # Update node_disk_size
+    if grep -q "^node_disk_size" "$tfvars_file"; then
+        sed -i "s/^node_disk_size[[:space:]]*=.*/node_disk_size = ${disk}/" "$tfvars_file"
+    else
+        echo "node_disk_size = ${disk}" >> "$tfvars_file"
+    fi
+    
+    log "✓ Updated Terraform variables:"
+    log "    node_count     = ${total_nodes}"
+    log "    node_cpu       = ${cpu}"
+    log "    node_memory    = ${memory}"
+    log "    node_disk_size = ${disk}"
+    
+    return 0
 }
 
 # Deploy Terraform infrastructure
@@ -299,6 +394,22 @@ main() {
     
     local site_code=$1
     local cluster_file=${2:-}
+    local update_tfvars=false
+    
+    # Parse options
+    shift 2 2>/dev/null || shift $#
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --update-tfvars)
+                update_tfvars=true
+                shift
+                ;;
+            *)
+                error "Unknown option: $1"
+                usage
+                ;;
+        esac
+    done
     
     # Convert site code to lowercase
     site_code=$(echo "$site_code" | tr '[:upper:]' '[:lower:]')
@@ -321,6 +432,19 @@ main() {
     
     validate_site_code "$site_code"
     check_prerequisites
+    
+    # Update tfvars from cluster file if requested
+    if [[ "$update_tfvars" == true ]] && [[ -n "$cluster_file" ]]; then
+        log "=== Updating Terraform Configuration ==="
+        local config_values=$(extract_cluster_config "$cluster_file")
+        if [[ $? -eq 0 ]]; then
+            read -r node_count cpu memory disk <<< "$config_values"
+            update_terraform_tfvars "$site_code" "$platform" "$node_count" "$cpu" "$memory" "$disk"
+            echo ""
+        else
+            warn "Skipping tfvars update due to extraction errors"
+        fi
+    fi
     
     # Step 1: Deploy infrastructure with Terraform
     log "=== Step 1: Deploy Infrastructure ==="
