@@ -2,9 +2,70 @@
 
 ## What Was Accomplished
 
-Created a complete **Multi-Site Hybrid GitOps Platform** for Talos Kubernetes cluster management with comprehensive automation, multi-VM size support, and streamlined workflows for both vSphere and Proxmox hypervisors.
+Created a complete **Multi-Site Hybrid GitOps Platform** for Talos Kubernetes cluster management with comprehensive automation, multi-VM size support, per-site Terraform variable management, and streamlined workflows for both vSphere and Proxmox hypervisors.
 
-### Latest Session (2025-12-22 - Final Update 07:26 UTC)
+### Latest Session (2025-12-22 - Final Update 07:32 UTC)
+
+**Documentation Update: Per-Site Terraform Variables Strategy**
+
+Updated all documentation to reflect the per-site tfvars strategy for managing infrastructure.
+
+#### Key Documentation Changes:
+
+**1. Per-Site Tfvars Strategy:**
+- One `terraform.tfvars.<site-code>` file per site (not per cluster)
+- All clusters in a site share the same tfvars file
+- VMs aggregated across all clusters in the site
+- Supports multiple clusters with different sizes and Talos versions
+
+**2. Updated Documentation Files:**
+- `README.md` - Architecture diagram and workflow descriptions
+- `docs/COMPLETE-WORKFLOW.md` - Complete workflow examples
+- All references to tfvars now emphasize per-site strategy
+
+**3. Key Principles Documented:**
+- `update-tfvars.sh` reads all cluster YAMLs in a site
+- Generates single tfvars file with aggregated VM requirements
+- Maps each VM config to correct ISO based on cluster's Talos version
+- `provision-nodes.sh` provisions ALL VMs for ALL clusters at once
+
+**4. Workflow Clarifications:**
+- ISO preparation: Auto-detects all Talos versions in site
+- Tfvars update: Aggregates across all clusters
+- Node provisioning: Single Terraform apply for entire site
+- Cluster application: Applied individually or all at once
+
+**5. Example Configurations:**
+Added example showing multi-cluster site with different Talos versions:
+```hcl
+omni_iso_urls = {
+  "1.9.0" = "https://.../talos-omni-dk1d-1.9.0.iso"
+  "1.8.3" = "https://.../talos-omni-dk1d-1.8.3.iso"
+}
+
+vm_configs = [
+  # Baseline cluster (Talos 1.9.0, 4x8)
+  { count = 3, cpu = 4, memory = 8192, talos_version = "1.9.0", role = "controlplane" },
+  { count = 5, cpu = 4, memory = 8192, talos_version = "1.9.0", role = "worker" },
+  # Web cluster (Talos 1.9.0, 8x16)
+  { count = 3, cpu = 8, memory = 16384, talos_version = "1.9.0", role = "controlplane" },
+  # Test cluster (Talos 1.8.3, 2x4)
+  { count = 1, cpu = 2, memory = 4096, talos_version = "1.8.3", role = "controlplane" }
+]
+```
+
+#### Files Updated:
+- `README.md` - Architecture, workflow descriptions, troubleshooting
+- `docs/COMPLETE-WORKFLOW.md` - Phase descriptions, examples, cluster destruction
+
+#### Benefits:
+1. ✅ Clear understanding of per-site infrastructure management
+2. ✅ Easier to understand resource aggregation
+3. ✅ Clear workflow for adding/removing clusters
+4. ✅ Simplified Terraform state management (one per site)
+5. ✅ Better documentation of multi-version support
+
+### Previous Session (2025-12-22 - Update 07:26 UTC)
 
 **Major Workflow Refactoring: Separated ISO, Terraform, and Cluster Management**
 

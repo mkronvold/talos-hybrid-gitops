@@ -39,7 +39,7 @@ brew install siderolabs/tap/sidero-tools terraform
 This creates:
 - `clusters/omni/dk1d/` - Cluster configurations
 - `clusters/omni/dk1d/site-dk1d.yaml` - Site metadata
-- `terraform/proxmox/terraform.tfvars.dk1d` - Infrastructure config template
+- `terraform/proxmox/terraform.tfvars.dk1d` - Infrastructure config for the entire site
 
 ### 4. Configure Terraform
 
@@ -88,7 +88,10 @@ This creates: `clusters/omni/dk1d/cluster-baseline.yaml`
 ./scripts/update-tfvars.sh dk1d
 ```
 
-This calculates total VMs needed across all clusters and updates terraform.tfvars.dk1d
+This reads all cluster YAML files in the site and updates `terraform.tfvars.dk1d` with:
+- Aggregated VM requirements grouped by size class and role
+- ISO image URLs for each Talos version used by clusters
+- Total VMs needed across all clusters in the site
 
 ### 8. Provision Nodes
 
@@ -129,7 +132,10 @@ kubectl get nodes
 ┌─────────────────────────────────────────────────────┐
 │  Git Repository                                      │
 │  ├── terraform/        Infrastructure as Code       │
+│  │   └── proxmox/                                   │
+│  │       └── terraform.tfvars.{site}  (per site)   │
 │  ├── clusters/omni/    Cluster definitions          │
+│  │   └── {site}/      (multiple clusters per site) │
 │  └── scripts/          Automation                   │
 └─────────────────────────────────────────────────────┘
          │                    │
@@ -137,8 +143,9 @@ kubectl get nodes
     Terraform            omnictl
     ─────────            ───────
     Provisions           Configures
-    VMs with             Talos
-    Omni ISOs            clusters
+    VMs for all          Talos
+    clusters in          clusters
+    site
          │                    │
          ▼                    ▼
     ┌─────────┐         ┌─────────┐
@@ -203,9 +210,9 @@ Detects existing configurations and offers to reuse values.
 │   ├── proxmox/               # Proxmox VM provisioning
 │   │   ├── main.tf
 │   │   ├── variables.tf
-│   │   └── terraform.tfvars.dk1d
+│   │   └── terraform.tfvars.dk1d  # Site-specific vars (all clusters)
 │   └── vsphere/               # vSphere VM provisioning
-│       └── ...
+│       └── terraform.tfvars.ny1p  # Each site has one tfvars file
 ├── scripts/
 │   ├── new-site.sh            # Create new site
 │   ├── new-cluster.sh         # Create cluster config
@@ -229,8 +236,8 @@ Detects existing configurations and offers to reuse values.
 | `new-site.sh` | Create site structure and configs |
 | `new-cluster.sh` | Generate cluster YAML (interactive or CLI) |
 | `prepare-omni-iso.sh` | Download Omni ISOs for each Talos version |
-| `update-tfvars.sh` | Calculate VM requirements from cluster YAMLs |
-| `provision-nodes.sh` | Deploy VMs with Terraform |
+| `update-tfvars.sh` | Calculate VM requirements from all cluster YAMLs in site |
+| `provision-nodes.sh` | Deploy VMs with Terraform for entire site |
 | `apply-cluster.sh` | Apply single cluster config to Omni |
 | `apply-clusters.sh` | Apply all clusters in a site |
 | `get-kubeconfigs.sh` | Download kubeconfigs for all clusters in site |
@@ -254,10 +261,10 @@ Detects existing configurations and offers to reuse values.
 # Prepare ISOs for all Talos versions needed
 ./scripts/prepare-omni-iso.sh dk1d
 
-# Update tfvars with total VM requirements
+# Update single tfvars file with total VM requirements for all clusters
 ./scripts/update-tfvars.sh dk1d
 
-# Provision all VMs
+# Provision all VMs for the entire site
 ./scripts/provision-nodes.sh dk1d
 
 # Apply all cluster configurations
@@ -273,10 +280,10 @@ Detects existing configurations and offers to reuse values.
 # Modify cluster YAML with new node counts
 ./scripts/new-cluster.sh dk1d baseline --workers 5 --force
 
-# Recalculate VM requirements
+# Recalculate VM requirements for entire site
 ./scripts/update-tfvars.sh dk1d
 
-# Apply Terraform changes
+# Apply Terraform changes (provisions additional VMs or removes excess)
 ./scripts/provision-nodes.sh dk1d
 
 # Machines automatically register and join
@@ -321,9 +328,11 @@ Detects existing configurations and offers to reuse values.
 # Prepare ISO will automatically download all versions needed
 ./scripts/prepare-omni-iso.sh dk1d
 
-# Update tfvars to include all version-specific ISOs
+# Update tfvars to include all version-specific ISOs and VM configs
 ./scripts/update-tfvars.sh dk1d
 ```
+
+Note: Each site has one tfvars file that includes ISO URLs for all Talos versions used by clusters in that site.
 
 ### SecureBoot Support
 
