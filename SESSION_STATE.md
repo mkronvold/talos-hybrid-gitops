@@ -2,9 +2,171 @@
 
 ## What Was Accomplished
 
-Created a complete **Multi-Site Hybrid GitOps Platform** for Talos Kubernetes cluster management with comprehensive automation, omnictl ISO integration, and streamlined workflows for both vSphere and Proxmox hypervisors.
+Created a complete **Multi-Site Hybrid GitOps Platform** for Talos Kubernetes cluster management with comprehensive automation, multi-VM size support, and streamlined workflows for both vSphere and Proxmox hypervisors.
 
-### Latest Session (2025-12-22)
+### Latest Session (2025-12-22 - Final Update 06:51 UTC)
+
+**Major Refactoring: Size Classes, Multi-VM Support, and Cluster Scaling**
+
+Implemented major breaking changes to support flexible VM sizing, removed backward compatibility, and added comprehensive scaling capabilities.
+
+#### Key Changes:
+
+**1. Size Class System Refactoring (BREAKING CHANGE):**
+- Changed from vague names (small/medium/large) to exact `CPUxMEMORY` format
+- New format: `2x4` (2 CPU, 4GB RAM), `4x8`, `8x16`, `16x32`, etc.
+- Self-documenting and prevents confusion
+- Removed `--cpu` and `--memory` options (deprecated with error message)
+- Now use `--size-class 2x4` instead
+- Machine labels must match exact resources
+- No CSV or lookup tables needed
+- Default size class: `2x4` (was: 4 CPU, 8GB RAM)
+
+**2. File Naming Conventions (BREAKING CHANGE):**
+- Site metadata: `.site-metadata` → `site-{sitecode}.yaml`
+- Cluster files: `{name}.yaml` → `cluster-{name}.yaml`
+- Consistent, visible, pattern-based naming
+- Easier filtering and organization
+- Example: `site-dk1d.yaml`, `cluster-baseline.yaml`
+
+**3. Multi-VM Size Support in Terraform (BREAKING CHANGE):**
+- Removed single-size variables: `node_count`, `node_cpu`, `node_memory`, `node_disk_size`
+- Added `vm_configs` variable (list of objects)
+- Each config specifies: `count`, `cpu`, `memory`, `disk`, `role`
+- Control planes and workers can have different resources
+- Multiple clusters with different sizes in same site
+- Changed from `count` to `for_each` in Terraform
+- VMs named: `{cluster}-{role}-{number}` (e.g., `dk1d-controlplane-1`, `dk1d-worker-1`)
+- Existing VMs will be destroyed/recreated due to naming change
+
+**4. New Scripts:**
+- `update-tfvars.sh` - Standalone script to recalculate Terraform variables
+- Reads all cluster YAMLs in a site
+- Generates `vm_configs` from cluster configurations
+- Supports multiple size classes automatically
+- Creates timestamped backups
+
+**5. Cluster Modification Support:**
+- `new-cluster.sh --force` flag to overwrite existing clusters
+- Automatic backup before overwriting
+- Verified node scaling up and down
+- Both increase and decrease node counts supported
+
+**6. Comprehensive Scaling Documentation:**
+- Created `docs/SCALING-CLUSTERS.md` (434 lines)
+- Covers scaling up (adding nodes)
+- Covers scaling down (removing nodes)
+- Control plane considerations (etcd quorum)
+- Worker node draining
+- Size class changes
+- Multiple clusters in one site
+- Troubleshooting and best practices
+
+#### Files Created/Modified:
+
+**New Files:**
+- `scripts/update-tfvars.sh` - Generate vm_configs from cluster YAMLs
+- `docs/SCALING-CLUSTERS.md` - Comprehensive scaling guide
+
+**Major Changes:**
+- `terraform/proxmox/variables.tf` - vm_configs only (removed single-size vars)
+- `terraform/proxmox/main.tf` - for_each with vm_configs, locals for VM flattening
+- `scripts/new-cluster.sh` - Size class format, --force flag, cluster- prefix
+- `scripts/update-tfvars.sh` - Generate vm_configs HCL
+- All scripts - Updated for site-{sitecode}.yaml format
+- All docs - Updated for new naming conventions
+- Renamed: `dk1d/baseline.yaml` → `dk1d/cluster-baseline.yaml`
+- Renamed: `dk1d/.site-metadata` → `dk1d/site-dk1d.yaml`
+
+#### Technical Details:
+
+**Size Class Format:**
+```bash
+# Old (deprecated)
+./scripts/new-cluster.sh dk1d baseline --cpu 4 --memory 8192
+
+# New (required)
+./scripts/new-cluster.sh dk1d baseline --size-class 4x8
+```
+
+**VM Configs Format:**
+```hcl
+vm_configs = [
+  {
+    count  = 3
+    cpu    = 4
+    memory = 8192
+    disk   = 50
+    role   = "controlplane"
+  },
+  {
+    count  = 5
+    cpu    = 8
+    memory = 16384
+    disk   = 100
+    role   = "worker"
+  }
+]
+```
+
+**Machine Labels in Omni:**
+- Old: `dk1d, proxmox, small`
+- New: `dk1d, proxmox, 2x4` (exact resources)
+
+**Scaling Support:**
+- Tested reducing dk1d-baseline from 8 to 3 nodes
+- `new-cluster.sh --force` updates cluster YAML
+- `update-tfvars.sh` recalculates vm_configs
+- Terraform destroys excess VMs (highest indices first)
+- Complete workflow verified
+
+#### Testing Results:
+- ✅ Size class refactoring (2x4 format working)
+- ✅ File renaming (site-*.yaml, cluster-*.yaml)
+- ✅ Multi-VM size support in Terraform
+- ✅ update-tfvars.sh generates correct vm_configs
+- ✅ Terraform validation passes
+- ✅ Node scaling up and down verified
+- ✅ --force flag for cluster updates
+- ✅ Comprehensive scaling documentation
+
+#### Migration Required:
+
+**For existing deployments:**
+```bash
+# 1. Update cluster configs with new size class format
+./scripts/new-cluster.sh <site> <cluster> --size-class 2x4 --force
+
+# 2. Rename metadata files
+mv clusters/omni/<site>/.site-metadata clusters/omni/<site>/site-<site>.yaml
+
+# 3. Rename cluster files
+mv clusters/omni/<site>/<cluster>.yaml clusters/omni/<site>/cluster-<cluster>.yaml
+
+# 4. Update tfvars
+./scripts/update-tfvars.sh <site>
+
+# 5. Review Terraform plan (will destroy/recreate VMs)
+cd terraform/proxmox
+terraform plan -var-file=terraform.tfvars.<site>
+
+# 6. Apply (if acceptable)
+terraform apply -var-file=terraform.tfvars.<site>
+
+# 7. Relabel machines in Omni UI with new format
+# Old: dk1d, proxmox, small
+# New: dk1d, proxmox, 2x4
+```
+
+#### Commits:
+- `26951e8` - Refactor size class system to use CPUxMEMORY format
+- `756611b` - Add --force flag to new-cluster.sh
+- `c2e121f` - Rename site metadata files and create update-tfvars.sh
+- `513422e` - Rename cluster YAML files to cluster-{name}.yaml format
+- `01ce9df` - Implement multi-VM size support in Terraform
+- `9838399` - Add cluster scaling documentation
+
+### Previous Session (2025-12-22 - Earlier)
 
 **Major Simplification: Omnictl ISO-Only Workflow**
 
