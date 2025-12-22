@@ -31,7 +31,7 @@ talos_factory_id = "95cbbfb7bb630c36ef220b4a68fd21957e40c1af951c3bf1e0b813e981da
 talos_image_url = "https://factory.talos.dev/image/{factory_id}/v{version}/nocloud-amd64.raw.gz"
 # VM configuration
 vm_id_start    = 8000
-node_count     = 4
-node_cpu       = 2
-node_memory    = 4096
+node_count     = 8
+node_cpu       = 4
+node_memory    = 8192
 node_disk_size = 50

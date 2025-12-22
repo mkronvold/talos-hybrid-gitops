@@ -88,44 +88,29 @@ ${GREEN}Arguments:${NC}
   cluster-name   Cluster name (e.g., web, data, ml)
 
 ${GREEN}Options:${NC}
-  --control-planes <n>   Number of control plane nodes (default: 1)
-  --workers <n>          Number of worker nodes (default: 3)
-  --cpu <n>              CPU cores per node (default: 4)
-  --memory <mb>          Memory in MB per node (default: 8192)
-  --disk <gb>            Disk size in GB per node (default: 50)
-  --size-class <class>   Size class: tiny, small, medium, large, xlarge (auto-detected if not specified)
-  --k8s-version <ver>    Kubernetes version (default: v1.30.0)
-  --talos-version <ver>  Talos version (default: v1.11.5)
-  --interactive, -i      Interactive mode with prompts
-  --help                 Show this help message
+  --control-planes <n>     Number of control plane nodes (default: 1)
+  --workers <n>            Number of worker nodes (default: 3)
+  --size-class <CPUxMEM>   Size class in CPUxMEMORY format (default: 2x4)
+                           Examples: 2x4, 4x8, 8x16, 16x32
+  --disk <gb>              Disk size in GB per node (default: 50)
+  --k8s-version <ver>      Kubernetes version (default: v1.30.0)
+  --talos-version <ver>    Talos version (default: v1.9.0)
+  --interactive, -i        Interactive mode with prompts (currently disabled)
+  --force, -f              Overwrite existing cluster configuration
+  --help                   Show this help message
 
-${GREEN}Size Classes:${NC}
-  (Loaded from clusters/size_classes.csv)
+${GREEN}Size Class Format:${NC}
+  CPUxMEMORY where MEMORY is in GB
+  
+  Common sizes:
+    2x4    - 2 CPU, 4GB RAM   (dev, testing)
+    4x8    - 4 CPU, 8GB RAM   (staging, light workloads)
+    8x16   - 8 CPU, 16GB RAM  (production)
+    16x32  - 16 CPU, 32GB RAM (large workloads, databases)
+  
+  Custom sizes allowed: 4x16, 8x32, 12x24, etc.
+
 EOF
-    
-    # Load and display size classes
-    load_size_classes 2>/dev/null || {
-        echo "  tiny:   1 CPU,  2GB"
-        echo "  small:  2 CPU,  4GB"
-        echo "  medium: 4 CPU,  8GB"
-        echo "  large:  8 CPU, 16GB"
-        echo "  xlarge: >8 CPU or >16GB"
-    }
-    
-    if [[ ${#SIZE_CLASS_ORDER[@]} -gt 0 ]]; then
-        for class in "${SIZE_CLASS_ORDER[@]}"; do
-            local cpu=${SIZE_CLASS_CPU[$class]}
-            local mem=${SIZE_CLASS_MEMORY[$class]}
-            local desc=${SIZE_CLASS_DESC[$class]}
-            if [[ $cpu -eq 999 ]]; then
-                printf "  %-8s: >%d CPU or >%dGB - %s\n" "$class" "${SIZE_CLASS_CPU[${SIZE_CLASS_ORDER[-2]}]}" "$((${SIZE_CLASS_MEMORY[${SIZE_CLASS_ORDER[-2]}]} / 1024))" "$desc"
-            else
-                printf "  %-8s: ≤%d CPU, ≤%dGB - %s\n" "$class" "$cpu" "$((mem / 1024))" "$desc"
-            fi
-        done
-    fi
-    
-    cat << EOF
 
 ${GREEN}Note:${NC}
   Platform is automatically detected from site configuration.
@@ -701,6 +686,7 @@ main() {
     local k8s_version="v1.30.0"
     local talos_version="v1.9.0"
     local interactive=false
+    local force_overwrite=false
     
     # Parse options
     while [[ $# -gt 0 ]]; do
@@ -731,6 +717,10 @@ main() {
                 ;;
             --interactive|-i)
                 interactive=true
+                shift
+                ;;
+            --force|-f)
+                force_overwrite=true
                 shift
                 ;;
             --cpu|--memory)
@@ -819,12 +809,19 @@ main() {
     
     validate_cluster_name "$cluster_name"
     
-    # Check if cluster already exists (skip if interactive mode already handled it)
+    # Check if cluster already exists (skip if interactive or force mode)
     local yaml_file="${PROJECT_ROOT}/clusters/omni/${site_code}/${cluster_name}.yaml"
-    if [[ -f "$yaml_file" && "$interactive" != true ]]; then
+    if [[ -f "$yaml_file" && "$interactive" != true && "$force_overwrite" != true ]]; then
         error "Cluster configuration already exists: $yaml_file"
-        error "Use --interactive/-i to update existing cluster"
+        error "Use --force/-f to overwrite, or --interactive/-i to update"
         exit 1
+    fi
+    
+    # Backup existing file if force overwrite
+    if [[ -f "$yaml_file" && "$force_overwrite" == true ]]; then
+        local backup_file="${yaml_file}.backup-$(date +%Y%m%d-%H%M%S)"
+        log "Backing up existing file to: $backup_file"
+        cp "$yaml_file" "$backup_file"
     fi
     
     # Create cluster configuration

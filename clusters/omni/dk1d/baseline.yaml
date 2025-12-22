@@ -2,7 +2,7 @@
 # Cluster Template: dk1d-baseline
 # Site: dk1d
 # Environment: development
-# Created: Mon Dec 22 05:47:34 UTC 2025
+# Created: Mon Dec 22 05:51:52 UTC 2025
 #
 # Apply with omnictl cluster template:
 #   omnictl cluster template sync -f baseline.yaml
@@ -25,46 +25,46 @@ features:
 kind: ControlPlane
 machineClass:
   name: dk1d-baseline-cp
-  size: 1
+  size: 3
   matchLabels:
     site: dk1d
     platform: proxmox
-    size: 2x4
+    size: 4x8
 
 ---
 kind: Workers
 machineClass:
   name: dk1d-baseline-workers
-  size: 3
+  size: 5
   matchLabels:
     site: dk1d
     platform: proxmox
-    size: 2x4
+    size: 4x8
 
 ---
 # Resource requirements for Terraform
 # These values should match your terraform.tfvars configuration
 
 # Node specifications:
-# - Control Planes: 1
-# - Workers: 3
-# - Total Nodes: 4
-# - Size Class: 2x4
+# - Control Planes: 3
+# - Workers: 5
+# - Total Nodes: 8
+# - Size Class: 4x8
 #
 # Per-node resources:
-# - CPU: 2 cores
-# - Memory: 4096 MB
+# - CPU: 4 cores
+# - Memory: 8192 MB
 # - Disk: 50 GB
 #
 # Total resources:
-# - CPU: 8 cores
-# - Memory: 16384 MB (16 GB)
-# - Disk: 200 GB
+# - CPU: 32 cores
+# - Memory: 65536 MB (64 GB)
+# - Disk: 400 GB
 
 # Update terraform/proxmox/terraform.tfvars.dk1d:
-#   node_count     = 4
-#   node_cpu       = 2
-#   node_memory    = 4096
+#   node_count     = 8
+#   node_cpu       = 4
+#   node_memory    = 8192
 #   node_disk_size = 50
 
 # To add machine patches, create separate patch files:
