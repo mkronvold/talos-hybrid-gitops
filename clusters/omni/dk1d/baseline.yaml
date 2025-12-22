@@ -2,7 +2,7 @@
 # Cluster: dk1d-baseline
 # Site: dk1d
 # Environment: development
-# Created: Sat Dec 20 03:01:44 UTC 2025
+# Created: Sat Dec 20 06:07:51 UTC 2025
 #
 # Apply instructions:
 #   ./scripts/apply-cluster.sh baseline.yaml
@@ -19,6 +19,7 @@ spec:
   matchlabels:
     - site = dk1d
     - platform = proxmox
+    - size = small
 
 ---
 # Worker machine class
@@ -30,6 +31,7 @@ spec:
   matchlabels:
     - site = dk1d
     - platform = proxmox
+    - size = small
 
 ---
 # Cluster resource
@@ -39,7 +41,7 @@ metadata:
   id: dk1d-baseline
 spec:
   kubernetesversion: 1.30.0
-  talosversion: 1.11.5
+  talosversion: 1.9.0
   features:
     enableworkloadproxy: true
     diskencryption: false
@@ -55,21 +57,10 @@ metadata:
     omni.sidero.dev/cluster: dk1d-baseline
     omni.sidero.dev/role-controlplane: ""
 spec:
-  cluster: dk1d-baseline
   machineclass:
     name: dk1d-baseline-control-plane
     machinecount: 1
-    allocationstrategy:
-      type: static
-    requirements:
-      - key: site
-        operator: In
-        values:
-          - dk1d
-      - key: platform
-        operator: In
-        values:
-          - proxmox
+    allocationtype: 0
   patches:
   - |
     machine:
@@ -118,21 +109,10 @@ metadata:
     omni.sidero.dev/cluster: dk1d-baseline
     omni.sidero.dev/role-worker: ""
 spec:
-  cluster: dk1d-baseline
   machineclass:
     name: dk1d-baseline-worker
     machinecount: 3
-    allocationstrategy:
-      type: static
-    requirements:
-      - key: site
-        operator: In
-        values:
-          - dk1d
-      - key: platform
-        operator: In
-        values:
-          - proxmox
+    allocationtype: 0
   patches:
   - |
     machine:
@@ -161,19 +141,20 @@ spec:
 # - Control Planes: 1
 # - Workers: 3
 # - Total Nodes: 4
+# - Size Class: small
 #
 # Per-node resources:
 # - CPU: 2 cores
 # - Memory: 4096 MB
-# - Disk: 50 GB
+# - Disk: 100 GB
 #
 # Total resources:
 # - CPU: 8 cores
 # - Memory: 16384 MB (16 GB)
-# - Disk: 200 GB
+# - Disk: 400 GB
 
 # Update terraform/vsphere/terraform.tfvars.dk1d:
 #   node_count     = 4
 #   node_cpu       = 2
 #   node_memory    = 4096
-#   node_disk_size = 50
+#   node_disk_size = 100

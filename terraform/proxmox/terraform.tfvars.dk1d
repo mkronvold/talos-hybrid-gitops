@@ -22,16 +22,16 @@ proxmox_ssh_private_key_file = "~/.ssh/id_rsa"  # Path to SSH private key file f
 
 # Talos configuration
 cluster_name  = "pb"
-talos_version = "1.11.5"
+#talos_version = "1.11.5"
+talos_version = "1.9.0"
 # Use {version} placeholder to automatically use the talos_version variable
 # Use {factory_id} placeholder to use the talos_factory_id variable
-talos_factory_id = "723ca318564987bcb1c018e441dfd0750c6162db0dee340d9761053f376c2c3c"
+#talos_factory_id = "723ca318564987bcb1c018e441dfd0750c6162db0dee340d9761053f376c2c3c"
+talos_factory_id = "95cbbfb7bb630c36ef220b4a68fd21957e40c1af951c3bf1e0b813e981da7309"
 talos_image_url = "https://factory.talos.dev/image/{factory_id}/v{version}/nocloud-amd64.raw.gz"
-
-
 # VM configuration
 vm_id_start    = 8000
-node_count     = 4
+node_count     = 7
 node_cpu       = 2
 node_memory    = 4096
-node_disk_size = 50
+node_disk_size = 100

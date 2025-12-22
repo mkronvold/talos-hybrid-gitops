@@ -78,6 +78,17 @@ source ~/omni.sh
 | dk1d-baseline | 1 | 3 | not deployed | 2025-12-20 |
 | dk1d-baseline | 1 | 3 | not deployed | 2025-12-20 |
 | dk1d-baseline | 1 | 3 | not deployed | 2025-12-20 |
+| dk1d-baseline | 1 | 3 | not deployed | 2025-12-20 |
+| dk1d-baseline | 1 | 3 | not deployed | 2025-12-20 |
+| dk1d-baseline | 1 | 3 | not deployed | 2025-12-20 |
+| dk1d-baseline | 1 | 3 | not deployed | 2025-12-20 |
+| dk1d-baseline | 1 | 3 | not deployed | 2025-12-20 |
+| dk1d-baseline | 1 | 3 | not deployed | 2025-12-20 |
+| dk1d-baseline | 1 | 3 | not deployed | 2025-12-20 |
+| dk1d-baseline | 1 | 3 | not deployed | 2025-12-20 |
+| dk1d-baseline | 1 | 3 | not deployed | 2025-12-20 |
+| dk1d-baseline | 1 | 3 | not deployed | 2025-12-20 |
+| dk1d-test-template | 1 | 2 | not deployed | 2025-12-22 |
 ## Notes
 
 <!-- Add site-specific notes here -->

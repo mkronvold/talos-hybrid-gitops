@@ -24,101 +24,158 @@ info() {
     echo -e "${BLUE}[INFO]${NC} $*"
 }
 
+warn() {
+    echo -e "${YELLOW}[WARN]${NC} $*"
+}
+
 usage() {
     cat << EOF
-${GREEN}Usage:${NC} $0 <cluster-yaml-file>
+${GREEN}Usage:${NC} $0 <cluster-template-file> [options]
 
-${YELLOW}Apply Omni cluster configuration from a YAML file.${NC}
+${YELLOW}Apply Omni cluster template configuration.${NC}
 
-This script splits the multi-document YAML file and applies each resource
-separately to work around omnictl apply limitations with multi-document files.
+This script uses 'omnictl cluster template sync' to apply cluster configurations.
 
 ${GREEN}Arguments:${NC}
-  cluster-yaml-file   Path to cluster YAML file (e.g., clusters/omni/dk1d/baseline.yaml)
+  cluster-template-file   Path to cluster template YAML file
+                         (e.g., clusters/omni/dk1d/baseline.yaml)
+
+${GREEN}Options:${NC}
+  --dry-run              Show what would be applied without making changes
+  --verbose, -v          Show detailed diff output
+  --help, -h             Show this help message
 
 ${GREEN}Example:${NC}
+  # Apply cluster template
   $0 clusters/omni/dk1d/baseline.yaml
+  
+  # Dry run to see changes
+  $0 clusters/omni/dk1d/baseline.yaml --dry-run
+  
+  # Verbose output with diffs
+  $0 clusters/omni/dk1d/baseline.yaml --verbose
 
-${GREEN}Resources applied in order:${NC}
-  1. MachineClasses (for machine selection)
-  2. Cluster (main cluster resource)
-  3. MachineSets (control plane and workers)
+${GREEN}Cluster Template Format:${NC}
+  The cluster template should contain:
+  - Cluster definition (kind: Cluster)
+  - ControlPlane definition (kind: ControlPlane)
+  - Workers definition (kind: Workers)
 
 EOF
     exit 1
 }
 
-# Check arguments
-if [[ $# -lt 1 ]]; then
-    error "Missing required argument: cluster-yaml-file"
-    usage
-fi
-
-YAML_FILE="$1"
-
-# Validate file exists
-if [[ ! -f "$YAML_FILE" ]]; then
-    error "File not found: $YAML_FILE"
-    exit 1
-fi
-
-log "Applying cluster configuration from: $YAML_FILE"
-
-# Create temp directory for split files
-TEMP_DIR=$(mktemp -d)
-trap "rm -rf $TEMP_DIR" EXIT
-
-# Split the YAML file by document separators
-info "Splitting YAML file into individual resources..."
-csplit -s -f "$TEMP_DIR/resource-" "$YAML_FILE" '/^---$/' '{*}' || {
-    error "Failed to split YAML file"
-    exit 1
+# Check if omnictl is installed
+check_omnictl() {
+    if ! command -v omnictl &> /dev/null; then
+        error "omnictl not found. Please install it first:"
+        error "  brew install siderolabs/tap/sidero-tools"
+        error "  OR: ./scripts/install-dependencies.sh"
+        exit 1
+    fi
 }
 
-# Apply each resource file
-RESOURCE_COUNT=0
-APPLIED_COUNT=0
+# Check if Omni credentials are configured
+check_omni_credentials() {
+    if [[ -z "${OMNI_ENDPOINT:-}" ]]; then
+        error "OMNI_ENDPOINT not set. Please configure Omni credentials:"
+        error "  source ~/omni.sh"
+        error "  OR: export OMNI_ENDPOINT=your-endpoint"
+        exit 1
+    fi
+}
 
-for resource_file in "$TEMP_DIR"/resource-*; do
-    # Skip empty files
-    if [[ ! -s "$resource_file" ]]; then
-        continue
+# Main function
+main() {
+    local cluster_file=""
+    local dry_run=""
+    local verbose=""
+    
+    # Parse arguments
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            -h|--help)
+                usage
+                ;;
+            --dry-run)
+                dry_run="--dry-run"
+                shift
+                ;;
+            -v|--verbose)
+                verbose="--verbose"
+                shift
+                ;;
+            -*)
+                error "Unknown option: $1"
+                usage
+                ;;
+            *)
+                if [[ -z "$cluster_file" ]]; then
+                    cluster_file="$1"
+                else
+                    error "Multiple cluster files specified"
+                    usage
+                fi
+                shift
+                ;;
+        esac
+    done
+    
+    # Validate arguments
+    if [[ -z "$cluster_file" ]]; then
+        error "Cluster template file not specified"
+        usage
     fi
     
-    # Skip files that are just comments
-    if ! grep -q "metadata:" "$resource_file" 2>/dev/null; then
-        continue
-    fi
-    
-    RESOURCE_COUNT=$((RESOURCE_COUNT + 1))
-    
-    # Extract resource type and ID for logging
-    RESOURCE_TYPE=$(grep "type:" "$resource_file" | head -1 | awk '{print $2}' || echo "Unknown")
-    RESOURCE_ID=$(grep "id:" "$resource_file" | head -1 | awk '{print $2}' || echo "Unknown")
-    
-    info "Applying resource $RESOURCE_COUNT: $RESOURCE_TYPE/$RESOURCE_ID"
-    
-    if omnictl apply -f "$resource_file" 2>&1; then
-        APPLIED_COUNT=$((APPLIED_COUNT + 1))
-        log "✓ Applied: $RESOURCE_TYPE/$RESOURCE_ID"
-    else
-        error "Failed to apply: $RESOURCE_TYPE/$RESOURCE_ID"
+    if [[ ! -f "$cluster_file" ]]; then
+        error "Cluster template file not found: $cluster_file"
         exit 1
     fi
     
-    # Small delay between resources
-    sleep 0.5
-done
+    # Check prerequisites
+    check_omnictl
+    check_omni_credentials
+    
+    log "Applying cluster template: $cluster_file"
+    
+    # Validate the template first
+    info "Validating cluster template..."
+    if ! omnictl cluster template validate -f "$cluster_file"; then
+        error "Cluster template validation failed"
+        exit 1
+    fi
+    log "✓ Template validation passed"
+    
+    # Apply the template
+    if [[ -n "$dry_run" ]]; then
+        warn "Running in dry-run mode - no changes will be made"
+    fi
+    
+    info "Syncing cluster template to Omni..."
+    if omnictl cluster template sync -f "$cluster_file" $dry_run $verbose; then
+        log "✓ Cluster template applied successfully"
+        
+        if [[ -z "$dry_run" ]]; then
+            # Extract cluster name from the template
+            local cluster_name=$(grep "^name:" "$cluster_file" | head -1 | awk '{print $2}')
+            
+            if [[ -n "$cluster_name" ]]; then
+                info ""
+                info "Cluster: $cluster_name"
+                info ""
+                info "Check cluster status:"
+                info "  omnictl cluster template status -f $cluster_file"
+                info ""
+                info "Get kubeconfig:"
+                info "  omnictl kubeconfig $cluster_name > kubeconfig"
+                info "  export KUBECONFIG=\$PWD/kubeconfig"
+                info "  kubectl get nodes"
+            fi
+        fi
+    else
+        error "Failed to apply cluster template"
+        exit 1
+    fi
+}
 
-log "✓ Successfully applied $APPLIED_COUNT/$RESOURCE_COUNT resources"
-
-# Show created resources
-info "Verifying created resources..."
-echo ""
-omnictl get clusters 2>/dev/null || true
-echo ""
-omnictl get machineclasses 2>/dev/null || true
-echo ""
-omnictl get machinesets 2>/dev/null || true
-
-log "✓ Cluster configuration applied successfully!"
+main "$@"

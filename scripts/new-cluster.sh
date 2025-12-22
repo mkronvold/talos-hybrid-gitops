@@ -421,7 +421,7 @@ interactive_mode() {
     fi
 }
 
-# Create cluster YAML
+# Create cluster YAML using Cluster Template format
 create_cluster_yaml() {
     local site_code=$1
     local cluster_name=$2
@@ -453,179 +453,50 @@ create_cluster_yaml() {
     local k8s_ver="${k8s_version#v}"
     local talos_ver="${talos_version#v}"
     
+    # Create cluster template YAML
     cat > "$yaml_file" <<EOF
 ---
-# Cluster: ${full_cluster_name}
+# Cluster Template: ${full_cluster_name}
 # Site: ${site_code}
 # Environment: ${environment}
 # Created: $(date)
 #
-# Apply instructions:
-#   ./scripts/apply-cluster.sh ${cluster_name}.yaml
+# Apply with omnictl cluster template:
+#   omnictl cluster template sync -f ${cluster_name}.yaml
 #
-# This will create all resources: MachineClasses, Cluster, and MachineSets
+# Or use the helper script:
+#   ./scripts/apply-cluster.sh ${cluster_name}.yaml
+
+kind: Cluster
+name: ${full_cluster_name}
+kubernetes:
+  version: v${k8s_ver}
+talos:
+  version: v${talos_ver}
+features:
+  enableWorkloadProxy: true
+  diskEncryption: false
+  useEmbeddedDiscoveryService: true
 
 ---
-# Control plane machine class
-metadata:
-  namespace: default
-  type: MachineClasses.omni.sidero.dev
-  id: ${full_cluster_name}-control-plane
-spec:
-  matchlabels:
-    - site = ${site_code}
-    - platform = ${platform}
-    - size = ${size_class}
-
----
-# Worker machine class
-metadata:
-  namespace: default
-  type: MachineClasses.omni.sidero.dev
-  id: ${full_cluster_name}-worker
-spec:
-  matchlabels:
-    - site = ${site_code}
-    - platform = ${platform}
-    - size = ${size_class}
-
----
-# Cluster resource
-metadata:
-  namespace: default
-  type: Clusters.omni.sidero.dev
-  id: ${full_cluster_name}
-spec:
-  kubernetesversion: ${k8s_ver}
-  talosversion: ${talos_ver}
-  features:
-    enableworkloadproxy: true
-    diskencryption: false
-    useembeddeddiscoveryservice: true
-
----
-# Control plane machine set
-metadata:
-  namespace: default
-  type: MachineSets.omni.sidero.dev
-  id: ${full_cluster_name}-control-planes
-  labels:
-    omni.sidero.dev/cluster: ${full_cluster_name}
-    omni.sidero.dev/role-controlplane: ""
-    role: controlplane
+kind: ControlPlane
+machineClass:
+  name: ${full_cluster_name}-cp
+  size: ${control_planes}
+  matchLabels:
     site: ${site_code}
     platform: ${platform}
     size: ${size_class}
-spec:
-  cluster: ${full_cluster_name}
-  machineclass:
-    name: ${full_cluster_name}-control-plane
-    machinecount: ${control_planes}
-    allocationstrategy:
-      type: static
-    requirements:
-      - key: site
-        operator: In
-        values:
-          - ${site_code}
-      - key: platform
-        operator: In
-        values:
-          - ${platform}
-      - key: size
-        operator: In
-        values:
-          - ${size_class}
-  patches:
-  - |
-    machine:
-      install:
-        disk: /dev/sda
-      kubelet:
-        nodeIP:
-          validSubnets:
-            - 0.0.0.0/0  # Use primary interface IP
-        extraArgs:
-          rotate-server-certificates: "true"
-      network:
-        interfaces:
-          - interface: eth0
-            dhcp: true
-      time:
-        servers:
-          - time.cloudflare.com
-          - time.google.com
-    cluster:
-      controllerManager:
-        extraArgs:
-          bind-address: "0.0.0.0"
-      scheduler:
-        extraArgs:
-          bind-address: "0.0.0.0"
-      apiServer:
-        certSANs:
-          - ${full_cluster_name}.local
-          - ${full_cluster_name}.example.com
-      proxy:
-        disabled: false
-      discovery:
-        enabled: true
-        registries:
-          service:
-            disabled: false
 
 ---
-# Worker machine set
-metadata:
-  namespace: default
-  type: MachineSets.omni.sidero.dev
-  id: ${full_cluster_name}-workers
-  labels:
-    omni.sidero.dev/cluster: ${full_cluster_name}
-    omni.sidero.dev/role-worker: ""
-    role: worker
+kind: Workers
+machineClass:
+  name: ${full_cluster_name}-workers
+  size: ${workers}
+  matchLabels:
     site: ${site_code}
     platform: ${platform}
     size: ${size_class}
-spec:
-  cluster: ${full_cluster_name}
-  machineclass:
-    name: ${full_cluster_name}-worker
-    machinecount: ${workers}
-    allocationstrategy:
-      type: static
-    requirements:
-      - key: site
-        operator: In
-        values:
-          - ${site_code}
-      - key: platform
-        operator: In
-        values:
-          - ${platform}
-      - key: size
-        operator: In
-        values:
-          - ${size_class}
-  patches:
-  - |
-    machine:
-      install:
-        disk: /dev/sda
-      kubelet:
-        nodeIP:
-          validSubnets:
-            - 0.0.0.0/0
-        extraArgs:
-          rotate-server-certificates: "true"
-      network:
-        interfaces:
-          - interface: eth0
-            dhcp: true
-      time:
-        servers:
-          - time.cloudflare.com
-          - time.google.com
 
 ---
 # Resource requirements for Terraform
@@ -647,16 +518,20 @@ spec:
 # - Memory: $((memory * (control_planes + workers))) MB ($((memory * (control_planes + workers) / 1024)) GB)
 # - Disk: $((disk * (control_planes + workers))) GB
 
-# Update terraform/vsphere/terraform.tfvars.${site_code}:
+# Update terraform/${platform}/terraform.tfvars.${site_code}:
 #   node_count     = $((control_planes + workers))
 #   node_cpu       = ${cpu}
 #   node_memory    = ${memory}
 #   node_disk_size = ${disk}
+
+# To add machine patches, create separate patch files:
+# 1. Create patches/${full_cluster_name}-patch.yaml with Talos machine config
+# 2. Add to template:
+#    patches:
+#      - file: patches/${full_cluster_name}-patch.yaml
 EOF
     
     log "✓ Created: $yaml_file"
-    
-    return 0
 }
 
 # Update site README with cluster info
@@ -830,7 +705,7 @@ main() {
     local memory=8192
     local disk=50
     local k8s_version="v1.30.0"
-    local talos_version="v1.11.5"
+    local talos_version="v1.9.0"
     local size_class=""  # Auto-detect if not specified
     local interactive=false
     
@@ -1000,6 +875,23 @@ main() {
     log "  3. Deploy infrastructure and cluster:"
     log "     ${GREEN}source ~/omni.sh  # Set credentials if not in ~/.bashrc${NC}"
     log "     ${GREEN}./scripts/deploy-infrastructure.sh ${site_code} $yaml_file${NC}"
+    echo ""
+    echo -e "${YELLOW}╔════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${YELLOW}║  IMPORTANT: Label Machines After Deployment               ║${NC}"
+    echo -e "${YELLOW}╚════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+    warn "After VMs boot and register with Omni (2-5 minutes):"
+    echo ""
+    echo "  1. Label each machine in Omni UI with:"
+    echo "     ${GREEN}${site_code}, ${platform}, small${NC}  (or medium/large based on VM size)"
+    echo ""
+    echo "  2. Check machine status:"
+    echo "     ${GREEN}./scripts/check-machines.sh $yaml_file${NC}"
+    echo ""
+    echo "  Size Classes:"
+    echo "    small:  2 CPU, 4-8GB RAM   (dev, testing)"
+    echo "    medium: 4 CPU, 8-16GB RAM  (staging)"
+    echo "    large:  8+ CPU, 16+GB RAM  (production)"
     echo ""
 }
 
