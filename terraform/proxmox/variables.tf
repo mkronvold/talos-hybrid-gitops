@@ -90,6 +90,18 @@ variable "talos_image_url" {
   default     = ""
 }
 
+variable "use_omni_iso" {
+  description = "Use pre-downloaded Omni ISO from prepare-omni-iso.sh script instead of downloading"
+  type        = bool
+  default     = false
+}
+
+variable "omni_iso_name" {
+  description = "Name of pre-downloaded Omni ISO in Proxmox storage (only used when use_omni_iso = true)"
+  type        = string
+  default     = ""
+}
+
 variable "cluster_name" {
   description = "Name of the Talos cluster"
   type        = string

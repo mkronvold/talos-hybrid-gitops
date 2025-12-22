@@ -28,8 +28,10 @@ provider "proxmox" {
   }
 }
 
-# Download Talos/Omni image to Proxmox
+# Download Talos/Omni image to Proxmox (skip if using pre-downloaded Omni ISO)
 resource "proxmox_virtual_environment_download_file" "talos_image" {
+  count = var.use_omni_iso ? 0 : 1
+
   content_type            = "iso"
   datastore_id            = var.proxmox_iso_storage
   node_name               = var.proxmox_node
@@ -56,7 +58,7 @@ resource "proxmox_virtual_environment_vm" "talos_node" {
   dynamic "cdrom" {
     for_each = var.talos_image_url == "" ? [1] : []
     content {
-      file_id   = proxmox_virtual_environment_download_file.talos_image.id
+      file_id   = var.use_omni_iso ? "${var.proxmox_iso_storage}:iso/${var.omni_iso_name}" : proxmox_virtual_environment_download_file.talos_image[0].id
       interface = "ide0"
     }
   }
@@ -85,7 +87,7 @@ resource "proxmox_virtual_environment_vm" "talos_node" {
     interface    = "scsi0"
     size         = var.node_disk_size
     file_format  = "raw"
-    file_id      = var.talos_image_url != "" ? proxmox_virtual_environment_download_file.talos_image.id : null
+    file_id      = var.talos_image_url != "" && !var.use_omni_iso ? proxmox_virtual_environment_download_file.talos_image[0].id : null
     discard      = "on"
     ssd          = true
   }

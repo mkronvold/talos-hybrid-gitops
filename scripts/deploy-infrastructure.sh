@@ -90,6 +90,10 @@ ${GREEN}Arguments:${NC}
   site-code     Site identifier (e.g., ny1d, sf2p, la1s)
   cluster-file  (Optional) Path to Omni cluster YAML configuration
 
+${GREEN}Options:${NC}
+  --use-omni-iso           Use pre-downloaded Omni ISO (run prepare-omni-iso.sh first)
+  --prepare-iso            Download and upload Omni ISO before deploying
+
 ${GREEN}Note:${NC}
   Platform (vsphere/proxmox) is automatically detected from site configuration.
   terraform.tfvars.{site} is automatically updated with accumulated totals:
@@ -339,6 +343,7 @@ update_terraform_tfvars() {
 deploy_terraform() {
     local site_code=$1
     local platform=$2
+    local use_omni_iso=${3:-false}
     local terraform_dir="${PROJECT_ROOT}/terraform/${platform}"
     local var_file="terraform.tfvars.${site_code}"
     
@@ -367,8 +372,25 @@ deploy_terraform() {
     log "Setting up Terraform workspace: $site_code"
     terraform workspace select "$site_code" 2>/dev/null || terraform workspace new "$site_code"
     
+    # Build terraform plan command with omni ISO options if needed
+    local tf_vars="-var-file=$var_file"
+    
+    if [[ "$use_omni_iso" == true ]]; then
+        # Check for ISO reference file
+        local iso_ref_file=".omni-iso-${site_code}"
+        if [[ -f "$iso_ref_file" ]]; then
+            local omni_iso_name=$(cat "$iso_ref_file")
+            log "Using Omni ISO: $omni_iso_name"
+            tf_vars+=" -var=use_omni_iso=true -var=omni_iso_name=$omni_iso_name"
+        else
+            error "Omni ISO reference file not found: $iso_ref_file"
+            error "Run: ./scripts/prepare-omni-iso.sh $site_code"
+            return 1
+        fi
+    fi
+    
     # Plan with site-specific variables
-    terraform plan -var-file="$var_file" -out="tfplan-${site_code}"
+    terraform plan $tf_vars -out="tfplan-${site_code}"
     
     echo ""
     read -p "Apply Terraform plan? (yes/no): " confirm
@@ -479,6 +501,28 @@ main() {
     
     local site_code=$1
     local cluster_file=${2:-}
+    local use_omni_iso=false
+    local prepare_iso=false
+    
+    # Parse remaining arguments for options
+    shift 2 2>/dev/null || shift $#
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --use-omni-iso)
+                use_omni_iso=true
+                shift
+                ;;
+            --prepare-iso)
+                prepare_iso=true
+                use_omni_iso=true
+                shift
+                ;;
+            *)
+                error "Unknown option: $1"
+                usage
+                ;;
+        esac
+    done
     
     # Convert site code to lowercase
     site_code=$(echo "$site_code" | tr '[:upper:]' '[:lower:]')
@@ -502,6 +546,17 @@ main() {
     validate_site_code "$site_code"
     check_prerequisites
     
+    # Prepare Omni ISO if requested
+    if [[ "$prepare_iso" == true ]]; then
+        echo ""
+        log "=== Preparing Omni ISO ==="
+        "${SCRIPT_DIR}/prepare-omni-iso.sh" "$site_code" || {
+            error "Failed to prepare Omni ISO"
+            exit 1
+        }
+        echo ""
+    fi
+    
     # Always update tfvars from all cluster files
     log "=== Updating Terraform Configuration ==="
     info "Calculating total requirements across all clusters for site $site_code..."
@@ -518,7 +573,7 @@ main() {
     
     # Step 1: Deploy infrastructure with Terraform
     log "=== Step 1: Deploy Infrastructure ==="
-    deploy_terraform "$site_code" "$platform" || {
+    deploy_terraform "$site_code" "$platform" "$use_omni_iso" || {
         error "Terraform deployment failed"
         exit 1
     }
