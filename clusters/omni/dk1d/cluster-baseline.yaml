@@ -2,13 +2,13 @@
 # Cluster Template: dk1d-baseline
 # Site: dk1d
 # Environment: development
-# Created: Mon Dec 22 05:51:52 UTC 2025
+# Created: Mon Dec 22 06:48:30 UTC 2025
 #
 # Apply with omnictl cluster template:
-#   omnictl cluster template sync -f baseline.yaml
+#   omnictl cluster template sync -f cluster-baseline.yaml
 #
 # Or use the helper script:
-#   ./scripts/apply-cluster.sh baseline.yaml
+#   ./scripts/apply-cluster.sh cluster-baseline.yaml
 
 kind: Cluster
 name: dk1d-baseline
