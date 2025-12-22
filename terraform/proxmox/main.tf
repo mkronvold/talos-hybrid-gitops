@@ -14,19 +14,21 @@ locals {
   ssh_private_key = var.proxmox_ssh_private_key_file != "" ? file(var.proxmox_ssh_private_key_file) : nonsensitive(var.proxmox_ssh_private_key)
   
   # Flatten vm_configs into individual VM specifications
-  # Each VM gets: unique name, vm_id, cpu, memory, disk, role
+  # Each VM gets: unique name, vm_id, cpu, memory, disk, role, talos_version, cluster
   vms = flatten([
     for config_idx, config in var.vm_configs : [
       for vm_idx in range(config.count) : {
         # Calculate cumulative VM index across all configs
-        global_idx = sum([for i in range(config_idx) : var.vm_configs[i].count]) + vm_idx
-        # VM naming: cluster-role-number (e.g., dk1d-controlplane-1, dk1d-worker-1)
-        name       = "${var.cluster_name}-${config.role}-${vm_idx + 1}"
-        vm_id      = var.vm_id_start + sum([for i in range(config_idx) : var.vm_configs[i].count]) + vm_idx
-        cpu        = config.cpu
-        memory     = config.memory
-        disk       = config.disk
-        role       = config.role
+        global_idx    = sum([for i in range(config_idx) : var.vm_configs[i].count]) + vm_idx
+        # VM naming: cluster-role-number (e.g., dk1d-baseline-controlplane-1)
+        name          = "${var.cluster_name}-${config.cluster}-${config.role}-${vm_idx + 1}"
+        vm_id         = var.vm_id_start + sum([for i in range(config_idx) : var.vm_configs[i].count]) + vm_idx
+        cpu           = config.cpu
+        memory        = config.memory
+        disk          = config.disk
+        role          = config.role
+        talos_version = config.talos_version
+        cluster       = config.cluster
       }
     ]
   ])
@@ -55,13 +57,13 @@ resource "proxmox_virtual_environment_vm" "talos_node" {
   for_each = local.vms_map
 
   name        = each.value.name
-  description = "Talos ${each.value.role} node for ${var.cluster_name} (Omni-managed)"
+  description = "Talos ${each.value.role} node for ${var.cluster_name}-${each.value.cluster} cluster (Omni-managed, Talos ${each.value.talos_version})"
   node_name   = var.proxmox_node
   vm_id       = each.value.vm_id
 
-  # Boot from Omni ISO
+  # Boot from version-specific Omni ISO
   cdrom {
-    file_id   = "${var.proxmox_iso_storage}:iso/${var.omni_iso_name}"
+    file_id   = "${var.proxmox_iso_storage}:iso/${var.omni_iso_images[each.value.talos_version]}"
     interface = "ide0"
   }
 

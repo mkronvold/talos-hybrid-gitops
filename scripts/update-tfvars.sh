@@ -102,6 +102,7 @@ parse_cluster_yaml() {
     local cpu=$(grep -A 5 "^# Per-node resources:" "$yaml_file" 2>/dev/null | grep "^# - CPU:" | head -1 | awk '{print $4}' || echo "0")
     local memory=$(grep -A 5 "^# Per-node resources:" "$yaml_file" 2>/dev/null | grep "^# - Memory:" | head -1 | awk '{print $4}' || echo "0")
     local disk=$(grep -A 5 "^# Per-node resources:" "$yaml_file" 2>/dev/null | grep "^# - Disk:" | head -1 | awk '{print $4}' || echo "50")
+    local talos_version=$(grep -A 5 "^# Versions:" "$yaml_file" 2>/dev/null | grep "^# - Talos:" | awk '{print $4}' || echo "")
     
     # Validate that we got required values
     if [[ ! "$cp_count" =~ ^[0-9]+$ ]] || [[ ! "$worker_count" =~ ^[0-9]+$ ]] || \
@@ -109,7 +110,65 @@ parse_cluster_yaml() {
         return 1
     fi
     
-    echo "$cp_count $worker_count $size_class $cpu $memory $disk"
+    echo "$cp_count $worker_count $size_class $cpu $memory $disk $talos_version"
+}
+
+# Detect required Talos versions and map to ISOs
+detect_talos_versions() {
+    local site_code=$1
+    local platform=$2
+    local site_dir="${PROJECT_ROOT}/clusters/omni/${site_code}"
+    local terraform_dir="${PROJECT_ROOT}/terraform/${platform}"
+    
+    declare -A talos_versions
+    
+    # Parse all cluster YAML files for Talos versions
+    while IFS= read -r yaml_file; do
+        [[ -f "$yaml_file" ]] || continue
+        
+        local config
+        config=$(parse_cluster_yaml "$yaml_file") || continue
+        
+        read cp_count worker_count size_class cpu memory disk talos_version <<< "$config"
+        
+        if [[ -n "$talos_version" ]]; then
+            talos_versions["$talos_version"]=1
+        fi
+    done < <(find "$site_dir" -maxdepth 1 -name "cluster-*.yaml" -type f)
+    
+    # Check for ISOs for each version
+    local missing_isos=()
+    local iso_mappings="{\n"
+    local first=true
+    
+    for version in "${!talos_versions[@]}"; do
+        local iso_ref_file="${terraform_dir}/.omni-iso-${site_code}-${version}"
+        
+        if [[ -f "$iso_ref_file" ]]; then
+            local iso_name=$(cat "$iso_ref_file")
+            if [[ ! "$first" == "true" ]]; then
+                iso_mappings+=",\n"
+            fi
+            iso_mappings+="  \"${version}\" = \"${iso_name}\""
+            first=false
+        else
+            missing_isos+=("$version")
+        fi
+    done
+    
+    iso_mappings+="\n}"
+    
+    # Check if we have missing ISOs
+    if [[ ${#missing_isos[@]} -gt 0 ]]; then
+        error "Missing ISOs for Talos versions: ${missing_isos[*]}"
+        error "Please prepare ISOs with:"
+        for version in "${missing_isos[@]}"; do
+            error "  ./scripts/prepare-omni-iso.sh $site_code --talos-version $version"
+        done
+        return 1
+    fi
+    
+    echo -e "$iso_mappings"
 }
 
 # Calculate VM configurations needed
@@ -131,7 +190,7 @@ calculate_vm_configs() {
     while IFS= read -r yaml_file; do
         [[ -f "$yaml_file" ]] || continue
         
-        local cluster_name=$(basename "$yaml_file" .yaml)
+        local cluster_name=$(basename "$yaml_file" .yaml | sed 's/^cluster-//')
         info "Processing cluster: $cluster_name" >&2
         
         local config
@@ -140,55 +199,46 @@ calculate_vm_configs() {
             continue
         }
         
-        read cp_count worker_count size_class cpu memory disk <<< "$config"
+        read cp_count worker_count size_class cpu memory disk talos_version <<< "$config"
         
         if [[ -z "$size_class" ]] || [[ "$size_class" == "0" ]]; then
             warn "No size class found in $cluster_name, skipping" >&2
             continue
         fi
         
-        # Track control plane configs
-        if [[ $cp_count -gt 0 ]]; then
-            local cp_key="${cpu}x$((memory / 1024))-cp"
-            if [[ -z "${cp_configs[$cp_key]:-}" ]]; then
-                cp_configs[$cp_key]="$cp_count:$cpu:$memory:$disk"
-            else
-                # Add to existing count
-                local existing_count=$(echo "${cp_configs[$cp_key]}" | cut -d: -f1)
-                local new_count=$((existing_count + cp_count))
-                cp_configs[$cp_key]="$new_count:$cpu:$memory:$disk"
-            fi
+        if [[ -z "$talos_version" ]]; then
+            warn "No Talos version found in $cluster_name, skipping" >&2
+            continue
         fi
         
-        # Track worker configs
-        if [[ $worker_count -gt 0 ]]; then
-            local worker_key="${cpu}x$((memory / 1024))-worker"
-            if [[ -z "${worker_configs[$worker_key]:-}" ]]; then
-                worker_configs[$worker_key]="$worker_count:$cpu:$memory:$disk"
-            else
-                # Add to existing count
-                local existing_count=$(echo "${worker_configs[$worker_key]}" | cut -d: -f1)
-                local new_count=$((existing_count + worker_count))
-                worker_configs[$worker_key]="$new_count:$cpu:$memory:$disk"
-            fi
+        # Track control plane configs (keyed by cluster-role-size)
+        if [[ $cp_count -gt 0 ]]; then
+            local cp_key="${cluster_name}-cp-${cpu}x$((memory / 1024))"
+            cp_configs[$cp_key]="$cp_count:$cpu:$memory:$disk:$talos_version:$cluster_name"
         fi
-    done < <(find "$site_dir" -maxdepth 1 -name "*.yaml" -type f ! -name "site-*.yaml" ! -name ".*")
+        
+        # Track worker configs (keyed by cluster-role-size)
+        if [[ $worker_count -gt 0 ]]; then
+            local worker_key="${cluster_name}-worker-${cpu}x$((memory / 1024))"
+            worker_configs[$worker_key]="$worker_count:$cpu:$memory:$disk:$talos_version:$cluster_name"
+        fi
+    done < <(find "$site_dir" -maxdepth 1 -name "cluster-*.yaml" -type f)
     
     # Output configurations
-    # Format: count:cpu:memory:disk:role
+    # Format: count:cpu:memory:disk:talos_version:cluster:role
     local total_nodes=0
     
     for key in "${!cp_configs[@]}"; do
         local config="${cp_configs[$key]}"
-        IFS=: read count cpu memory disk <<< "$config"
-        echo "$count:$cpu:$memory:$disk:controlplane"
+        IFS=: read count cpu memory disk talos_version cluster <<< "$config"
+        echo "$count:$cpu:$memory:$disk:$talos_version:$cluster:controlplane"
         total_nodes=$((total_nodes + count))
     done
     
     for key in "${!worker_configs[@]}"; do
         local config="${worker_configs[$key]}"
-        IFS=: read count cpu memory disk <<< "$config"
-        echo "$count:$cpu:$memory:$disk:worker"
+        IFS=: read count cpu memory disk talos_version cluster <<< "$config"
+        echo "$count:$cpu:$memory:$disk:$talos_version:$cluster:worker"
         total_nodes=$((total_nodes + count))
     done
     
@@ -201,6 +251,7 @@ update_tfvars() {
     local site_code=$1
     local platform=$2
     local configs=$3
+    local iso_mappings=$4
     
     local terraform_dir="${PROJECT_ROOT}/terraform/${platform}"
     local tfvars_file="${terraform_dir}/terraform.tfvars.${site_code}"
@@ -231,11 +282,11 @@ update_tfvars() {
         
         [[ -z "$line" ]] && continue
         
-        IFS=: read count cpu memory disk role <<< "$line"
+        IFS=: read count cpu memory disk talos_version cluster role <<< "$line"
         [[ -z "$count" ]] && continue
         
         local mem_gb=$((memory / 1024))
-        info "  - ${count}x ${role}: ${cpu} CPU, ${mem_gb}GB RAM, ${disk}GB disk"
+        info "  - ${count}x ${role} (${cluster}, Talos ${talos_version}): ${cpu} CPU, ${mem_gb}GB RAM, ${disk}GB disk"
         
         # Build JSON object for this config
         if [[ "$first" != true ]]; then
@@ -245,11 +296,13 @@ update_tfvars() {
         
         vm_configs_json+="
   {
-    count  = ${count}
-    cpu    = ${cpu}
-    memory = ${memory}
-    disk   = ${disk}
-    role   = \"${role}\"
+    count         = ${count}
+    cpu           = ${cpu}
+    memory        = ${memory}
+    disk          = ${disk}
+    role          = \"${role}\"
+    talos_version = \"${talos_version}\"
+    cluster       = \"${cluster}\"
   }"
     done <<< "$configs"
     
@@ -263,17 +316,26 @@ update_tfvars() {
     sed -i '/^node_cpu[[:space:]]*=/d' "$tfvars_file"
     sed -i '/^node_memory[[:space:]]*=/d' "$tfvars_file"
     sed -i '/^node_disk_size[[:space:]]*=/d' "$tfvars_file"
+    sed -i '/^omni_iso_name[[:space:]]*=/d' "$tfvars_file"
     
     # Remove existing vm_configs if present
-    # This is tricky - need to handle multi-line removal
     sed -i '/^vm_configs[[:space:]]*=/,/^\]/d' "$tfvars_file"
     
-    # Append new vm_configs
+    # Remove existing omni_iso_images if present
+    sed -i '/^omni_iso_images[[:space:]]*=/,/^}/d' "$tfvars_file"
+    
+    # Append new configurations
+    echo "" >> "$tfvars_file"
+    echo "# Omni ISO Images - Version-specific ISOs" >> "$tfvars_file"
+    echo "# Generated by update-tfvars.sh on $(date)" >> "$tfvars_file"
+    echo "# Each cluster uses the ISO for its Talos version" >> "$tfvars_file"
+    echo "omni_iso_images = ${iso_mappings}" >> "$tfvars_file"
     echo "" >> "$tfvars_file"
     echo "# VM Configurations - Multi-size support" >> "$tfvars_file"
     echo "# Generated by update-tfvars.sh on $(date)" >> "$tfvars_file"
     echo "vm_configs = ${vm_configs_json}" >> "$tfvars_file"
     
+    log "✓ Updated omni_iso_images with version mappings"
     log "✓ Updated vm_configs with ${total_vms} total VMs"
     
     return 0
@@ -322,8 +384,15 @@ main() {
     
     echo ""
     
+    # Detect Talos versions and ISOs
+    log "Detecting required Talos versions..."
+    local iso_mappings
+    iso_mappings=$(detect_talos_versions "$site_code" "$platform") || exit 1
+    
+    echo ""
+    
     # Update tfvars
-    update_tfvars "$site_code" "$platform" "$configs" || exit 1
+    update_tfvars "$site_code" "$platform" "$configs" "$iso_mappings" || exit 1
     
     echo ""
     echo -e "${GREEN}╔════════════════════════════════════════════════════════════╗${NC}"
@@ -336,10 +405,8 @@ main() {
     log "  1. Review the updated tfvars:"
     log "     ${GREEN}cat terraform/${platform}/terraform.tfvars.${site_code}${NC}"
     echo ""
-    log "  2. Apply Terraform changes:"
-    log "     ${GREEN}cd terraform/${platform}${NC}"
-    log "     ${GREEN}terraform plan -var-file=terraform.tfvars.${site_code}${NC}"
-    log "     ${GREEN}terraform apply -var-file=terraform.tfvars.${site_code}${NC}"
+    log "  2. Provision nodes:"
+    log "     ${GREEN}./scripts/provision-nodes.sh ${site_code}${NC}"
     echo ""
 }
 

@@ -271,17 +271,8 @@ main() {
         if scp "$iso_path" "${proxmox_ssh_user}@${proxmox_host}:${proxmox_iso_path}"; then
             log "✓ ISO uploaded successfully to Proxmox"
             
-            # Update omni_iso_name in tfvars
-            if grep -q "^omni_iso_name" "$tfvars_file"; then
-                sed -i "s|^omni_iso_name.*|omni_iso_name = \"${iso_name}\"|" "$tfvars_file"
-                log "✓ Updated omni_iso_name in tfvars"
-            else
-                echo "omni_iso_name = \"${iso_name}\"" >> "$tfvars_file"
-                log "✓ Added omni_iso_name to tfvars"
-            fi
-            
-            # Store ISO name for reference
-            local iso_ref_file="${PROJECT_ROOT}/terraform/proxmox/.omni-iso-${site_code}"
+            # Store ISO name and version for reference
+            local iso_ref_file="${PROJECT_ROOT}/terraform/proxmox/.omni-iso-${site_code}-${talos_version}"
             echo "$iso_name" > "$iso_ref_file"
             log "✓ Saved ISO reference: $iso_ref_file"
         else
@@ -303,9 +294,10 @@ main() {
     if [[ "$no_upload" == false && "$platform" == "proxmox" ]]; then
         log "Proxmox Path: $proxmox_iso_path"
         log "ISO Name: $iso_name"
+        log "Talos Version: $talos_version"
         echo ""
         log "Next steps:"
-        log "  1. ISO name automatically updated in tfvars"
+        log "  1. Prepare additional ISOs if needed (other versions)"
         log "  2. Run: ./scripts/update-tfvars.sh ${site_code}"
         log "  3. Run: ./scripts/provision-nodes.sh ${site_code}"
     else
