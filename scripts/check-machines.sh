@@ -42,10 +42,14 @@ Shows:
 ${GREEN}Example:${NC}
   $0 clusters/omni/dk1d/baseline.yaml
 
-${GREEN}Size Classes:${NC}
-  small  - 2 CPU, 4-8GB RAM   (dev, testing)
-  medium - 4 CPU, 8-16GB RAM  (staging, small prod)
-  large  - 8+ CPU, 16+GB RAM  (production)
+${GREEN}Size Class Format:${NC}
+  CPUxMEMORY where MEMORY is in GB
+  
+  Examples:
+    2x4    - 2 CPU, 4GB RAM
+    4x8    - 4 CPU, 8GB RAM
+    8x16   - 8 CPU, 16GB RAM
+    16x32  - 16 CPU, 32GB RAM
 
 EOF
     exit 1
@@ -160,11 +164,12 @@ if [[ $UNLABELED_COUNT -gt 0 ]]; then
     echo "3. Add labels (comma-separated):"
     echo "   - site code (e.g., dk1d)"
     echo "   - platform (proxmox or vsphere)"
-    echo "   - size class (small, medium, or large)"
+    echo "   - size class (CPUxMEMORY format, e.g., 2x4, 4x8, 8x16)"
     echo ""
-    echo "Example: ${GREEN}dk1d, proxmox, small${NC}"
+    echo "Example: ${GREEN}dk1d, proxmox, 2x4${NC}"
     echo ""
-    echo "4. After labeling, machines will be automatically allocated to matching"
+    echo "4. Size class must match actual VM resources exactly"
+    echo "5. After labeling, machines will be automatically allocated to matching"
     echo "   MachineSets based on MachineClass requirements"
     echo ""
 else

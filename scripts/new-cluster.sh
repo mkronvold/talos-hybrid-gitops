@@ -129,7 +129,7 @@ EOF
 
 ${GREEN}Note:${NC}
   Platform is automatically detected from site configuration.
-  Size class is auto-detected from cpu/memory if not specified.
+  Size class defines both CPU and memory using CPUxMEMORY format (e.g., 2x4 = 2 CPU, 4GB RAM).
   terraform.tfvars.{site} is automatically updated with accumulated totals:
     - node_count: sum of all cluster nodes
     - cpu/memory/disk: maximum values across all clusters
@@ -139,17 +139,29 @@ ${GREEN}Examples:${NC}
   $0 ny1d web --interactive
   $0 ny1d web -i
   
-  # Create basic cluster with defaults (1 CP + 3 workers)
+  # Create basic cluster with defaults (1 CP + 3 workers, 2x4 size class)
   $0 ny1d web
   
-  # Create cluster with custom sizing
-  $0 sf2p data --control-planes 5 --workers 10 --cpu 8 --memory 16384
+  # Create cluster with custom sizing using size class
+  $0 sf2p data --control-planes 5 --workers 10 --size-class 8x16
   
-  # Create small dev cluster with specific size class
-  $0 la1s dev --control-planes 1 --workers 2 --size-class small
+  # Create small dev cluster
+  $0 la1s dev --control-planes 1 --workers 2 --size-class 2x4
+  
+  # Create large production cluster
+  $0 ny1p prod --control-planes 3 --workers 10 --size-class 16x32
   
   # Update existing cluster (interactive mode backs up old file)
   $0 ny1d web -i
+
+${GREEN}Size Class Format:${NC}
+  CPUxMEMORY where MEMORY is in GB
+  
+  Common sizes:
+    2x4    - 2 CPU, 4GB RAM   (dev, testing)
+    4x8    - 4 CPU, 8GB RAM   (staging, light workloads)
+    8x16   - 8 CPU, 16GB RAM  (production)
+    16x32  - 16 CPU, 32GB RAM (large workloads, databases)
 
 ${GREEN}Generated Files:${NC}
   clusters/omni/<site-code>/<cluster-name>.yaml
@@ -205,56 +217,37 @@ get_environment() {
     esac
 }
 
-# Determine size class from CPU and memory
-determine_size_class() {
-    local cpu=$1
-    local memory=$2
+# Parse size class from CPUxMEMORY format
+parse_size_class() {
+    local size_class=$1
     
-    # Load size classes if not already loaded
-    if [[ ${#SIZE_CLASS_ORDER[@]} -eq 0 ]]; then
-        load_size_classes
+    if [[ ! "$size_class" =~ ^([0-9]+)x([0-9]+)$ ]]; then
+        error "Invalid size class format: $size_class"
+        error "Expected format: CPUxMEMORY (e.g., 2x4, 4x8, 8x16)"
+        return 1
     fi
     
-    # Find the appropriate size class (iterate in order)
-    for class in "${SIZE_CLASS_ORDER[@]}"; do
-        local max_cpu=${SIZE_CLASS_CPU[$class]}
-        local max_memory=${SIZE_CLASS_MEMORY[$class]}
-        
-        # Skip xlarge limit check (it's the catch-all)
-        if [[ $max_cpu -eq 999 ]]; then
-            echo "$class"
-            return 0
-        fi
-        
-        if [[ $cpu -le $max_cpu && $memory -le $max_memory ]]; then
-            echo "$class"
-            return 0
-        fi
-    done
+    local cpu="${BASH_REMATCH[1]}"
+    local memory="${BASH_REMATCH[2]}"
     
-    # Fallback to last class if nothing matched
-    echo "${SIZE_CLASS_ORDER[-1]}"
+    # Convert memory from GB to MB
+    local memory_mb=$((memory * 1024))
+    
+    echo "$cpu $memory_mb"
 }
 
-# Validate size class
-validate_size_class() {
-    local size=$1
+# Validate and extract CPU and memory from size class
+get_resources_from_size_class() {
+    local size_class=$1
     
-    # Load size classes if not already loaded
-    if [[ ${#SIZE_CLASS_ORDER[@]} -eq 0 ]]; then
-        load_size_classes
+    local resources
+    resources=$(parse_size_class "$size_class")
+    
+    if [[ $? -ne 0 ]]; then
+        return 1
     fi
     
-    # Check if size class exists in our definitions
-    for class in "${SIZE_CLASS_ORDER[@]}"; do
-        if [[ "$class" == "$size" ]]; then
-            return 0
-        fi
-    done
-    
-    error "Invalid size class: $size"
-    error "Must be one of: ${SIZE_CLASS_ORDER[*]}"
-    return 1
+    echo "$resources"
 }
 
 # Parse existing cluster YAML to get current values
@@ -701,12 +694,12 @@ main() {
     # Default values
     local control_planes=1
     local workers=3
-    local cpu=4
-    local memory=8192
+    local size_class="2x4"  # Default: 2 CPU, 4GB RAM
+    local cpu=""
+    local memory=""
     local disk=50
     local k8s_version="v1.30.0"
     local talos_version="v1.9.0"
-    local size_class=""  # Auto-detect if not specified
     local interactive=false
     
     # Parse options
@@ -720,20 +713,12 @@ main() {
                 workers="$2"
                 shift 2
                 ;;
-            --cpu)
-                cpu="$2"
-                shift 2
-                ;;
-            --memory)
-                memory="$2"
+            --size-class)
+                size_class="$2"
                 shift 2
                 ;;
             --disk)
                 disk="$2"
-                shift 2
-                ;;
-            --size-class)
-                size_class="$2"
                 shift 2
                 ;;
             --k8s-version)
@@ -747,6 +732,10 @@ main() {
             --interactive|-i)
                 interactive=true
                 shift
+                ;;
+            --cpu|--memory)
+                error "The $1 option is deprecated. Use --size-class instead (e.g., --size-class 2x4)"
+                exit 1
                 ;;
             --help)
                 usage
@@ -765,31 +754,25 @@ main() {
         # Use values from interactive mode
         control_planes="$INTERACTIVE_CP"
         workers="$INTERACTIVE_WORKERS"
-        cpu="$INTERACTIVE_CPU"
-        memory="$INTERACTIVE_MEMORY"
-        disk="$INTERACTIVE_DISK"
         size_class="$INTERACTIVE_SIZE"
+        disk="$INTERACTIVE_DISK"
         k8s_version="$INTERACTIVE_K8S"
         talos_version="$INTERACTIVE_TALOS"
     fi
     
+    # Parse size class to get CPU and memory
+    local resources
+    resources=$(get_resources_from_size_class "$size_class")
+    if [[ $? -ne 0 ]]; then
+        error "Invalid size class: $size_class"
+        exit 1
+    fi
+    
+    read cpu memory <<< "$resources"
+    
     # Load site metadata to get platform
     load_site_metadata "$site_code" || exit 1
     local platform="$PLATFORM"
-    
-    # Load size class definitions
-    load_size_classes || {
-        error "Failed to load size class definitions"
-        exit 1
-    }
-    
-    # Auto-detect size class if not specified
-    if [[ -z "$size_class" ]]; then
-        size_class=$(determine_size_class "$cpu" "$memory")
-        info "Auto-detected size class: $size_class"
-    else
-        validate_size_class "$size_class" || exit 1
-    fi
     
     local full_cluster_name="${site_code}-${cluster_name}"
     local total_nodes=$((control_planes + workers))
@@ -883,15 +866,13 @@ main() {
     warn "After VMs boot and register with Omni (2-5 minutes):"
     echo ""
     echo "  1. Label each machine in Omni UI with:"
-    echo "     ${GREEN}${site_code}, ${platform}, small${NC}  (or medium/large based on VM size)"
+    echo "     ${GREEN}${site_code}, ${platform}, ${size_class}${NC}"
     echo ""
     echo "  2. Check machine status:"
     echo "     ${GREEN}./scripts/check-machines.sh $yaml_file${NC}"
     echo ""
-    echo "  Size Classes:"
-    echo "    small:  2 CPU, 4-8GB RAM   (dev, testing)"
-    echo "    medium: 4 CPU, 8-16GB RAM  (staging)"
-    echo "    large:  8+ CPU, 16+GB RAM  (production)"
+    echo "  Size Class Format: CPUxMEMORY (e.g., 2x4, 4x8, 8x16)"
+    echo "  Must match the actual VM resources exactly"
     echo ""
 }
 
