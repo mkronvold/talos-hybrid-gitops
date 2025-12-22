@@ -1,12 +1,310 @@
 # Proxmox Infrastructure Deployment
 
-This directory contains Terraform configuration for provisioning Talos VMs on Proxmox.
+Terraform configuration for provisioning Talos VMs on Proxmox with Omni ISOs.
 
 ## Prerequisites
 
 1. **Proxmox Server** - Version 7.0 or later
-2. **Terraform** - Version 1.6 or later
-3. **API Token** - Create a Proxmox API token for Terraform
+2. **Terraform** - Version 1.5 or later
+3. **omnictl** - For generating Omni ISOs
+4. **Omni Service Account** - API credentials
+
+## Quick Start
+
+```bash
+# 1. Create site and cluster
+cd ../../
+./scripts/new-site.sh dk1d proxmox --location "Denmark Zone 1 Dev"
+./scripts/new-cluster.sh dk1d baseline -i
+
+# 2. Configure (edit with your Proxmox details)
+vim terraform/proxmox/terraform.tfvars.dk1d
+
+# 3. Deploy (prepares ISO and deploys VMs)
+./scripts/deploy-infrastructure.sh dk1d --prepare-iso
+```
+
+## Configuration
+
+### 1. Proxmox API Token Setup
+
+**Create API Token:**
+1. Proxmox UI → Datacenter → Permissions → API Tokens
+2. Click **Add**:
+   - User: `root@pam`
+   - Token ID: `terraform`
+   - **Uncheck** "Privilege Separation"
+3. Copy the token: `root@pam!terraform=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`
+
+### 2. Configure terraform.tfvars
+
+Edit `terraform.tfvars.dk1d`:
+
+```hcl
+# Proxmox connection
+proxmox_endpoint = "https://192.168.1.10:8006"
+proxmox_api_token = "root@pam!terraform=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+proxmox_insecure = true  # Set false with valid SSL
+
+# Proxmox resources
+proxmox_node      = "pve"
+proxmox_datastore = "local-lvm"
+proxmox_bridge    = "vmbr0"
+
+# Cluster info
+cluster_name = "dk1d"
+
+# Omni ISO (set by prepare-omni-iso.sh)
+omni_iso_name = "talos-omni-dk1d-v1.11.5.iso"
+
+# VM configuration
+vm_id_start    = 8000
+node_count     = 4
+node_cpu       = 2
+node_memory    = 4096
+node_disk_size = 50
+```
+
+## Omni ISO Workflow
+
+### What is an Omni ISO?
+
+Omni ISOs are customized Talos installation media with:
+- ✅ Your Omni credentials pre-configured
+- ✅ Site labels baked in (`site=dk1d`, `platform=proxmox`)
+- ✅ Guest agent included (`qemu-guest-agent`)
+- ✅ Automatic Omni registration on boot
+
+### Generate Omni ISO
+
+```bash
+# Basic (guest agent added automatically)
+./scripts/prepare-omni-iso.sh dk1d
+
+# With additional extensions
+./scripts/prepare-omni-iso.sh dk1d --extensions intel-ucode
+
+# Specific Talos version
+./scripts/prepare-omni-iso.sh dk1d --talos-version 1.10.0
+
+# SecureBoot enabled
+./scripts/prepare-omni-iso.sh dk1d --secureboot
+```
+
+**Result:**
+- ISO downloaded to: `/tmp/omni-isos/talos-omni-dk1d-v1.11.5.iso`
+- ISO uploaded to Proxmox: `/var/lib/vz/template/iso/`
+- Reference saved: `terraform/proxmox/.omni-iso-dk1d`
+
+## Deployment
+
+### Automated (Recommended)
+
+```bash
+# All-in-one: ISO + infrastructure
+./scripts/deploy-infrastructure.sh dk1d --prepare-iso
+```
+
+### Manual
+
+```bash
+# 1. Generate ISO
+./scripts/prepare-omni-iso.sh dk1d
+
+# 2. Initialize Terraform
+cd terraform/proxmox
+terraform init
+
+# 3. Create/select workspace
+terraform workspace new dk1d  # or: select dk1d
+
+# 4. Plan
+terraform plan -var-file=terraform.tfvars.dk1d -var="omni_iso_name=talos-omni-dk1d-v1.11.5.iso"
+
+# 5. Apply
+terraform apply -var-file=terraform.tfvars.dk1d -var="omni_iso_name=talos-omni-dk1d-v1.11.5.iso"
+```
+
+## What Gets Created
+
+Each VM includes:
+- **Name**: `<cluster_name>-node-<number>`
+- **BIOS**: OVMF (UEFI)
+- **CPU**: Specified cores (type: host)
+- **Memory**: Specified MB
+- **Network**: Virtio adapter on bridge
+- **Disk**: Raw format, SSD emulation
+- **Boot**: Omni ISO in CD-ROM (ide0)
+- **Status**: Auto-started
+
+## After Deployment
+
+### 1. Verify VMs Created
+
+```bash
+# On Proxmox host
+qm list | grep dk1d
+```
+
+### 2. Check Omni Registration (2-5 minutes)
+
+```bash
+omnictl get machines --labels site=dk1d
+```
+
+Machines should appear with labels:
+- `site=dk1d`
+- `platform=proxmox`
+
+### 3. Apply Cluster Configuration
+
+```bash
+./scripts/apply-cluster.sh clusters/omni/dk1d/baseline.yaml
+```
+
+### 4. Get Kubeconfig
+
+```bash
+omnictl kubeconfig dk1d-baseline > kubeconfig
+export KUBECONFIG=./kubeconfig
+kubectl get nodes
+```
+
+## Troubleshooting
+
+### ISO Reference Not Found
+
+**Error**: `Omni ISO reference file not found`
+
+**Solution**:
+```bash
+./scripts/prepare-omni-iso.sh dk1d
+```
+
+### Authentication Errors
+
+**Error**: `authentication failed`
+
+**Solutions**:
+- Verify token format: `USER@REALM!TOKENID=SECRET`
+- Ensure "Privilege Separation" is disabled
+- Test with: `curl -k -H "Authorization: PVEAPIToken=$TOKEN" https://proxmox:8006/api2/json/version`
+
+### VMs Not Registering with Omni
+
+**Causes**:
+1. Network connectivity to Omni endpoint
+2. Wait 2-5 minutes for boot
+3. Check VM console for errors
+
+**Check**:
+```bash
+# On Proxmox host
+qm terminal <vmid>
+# Look for "Connected to Omni" message
+```
+
+### Storage Errors
+
+**Error**: `datastore not found`
+
+**Solution**:
+- List datastores: Proxmox UI → Datacenter → Storage
+- Update `proxmox_datastore` in tfvars
+- Ensure sufficient free space
+
+### SSL Certificate Errors
+
+**Error**: `x509: certificate signed by unknown authority`
+
+**Solution**:
+```hcl
+proxmox_insecure = true
+```
+
+### Terraform Lock File Errors
+
+**Error**: `Inconsistent dependency lock file`
+
+**Solution**:
+```bash
+terraform init -upgrade
+```
+
+## Multiple Clusters per Site
+
+Terraform manages infrastructure for the **entire site**, not individual clusters.
+
+```bash
+# Create multiple clusters
+./scripts/new-cluster.sh dk1d baseline -i
+./scripts/new-cluster.sh dk1d web -i
+./scripts/new-cluster.sh dk1d data -i
+
+# Deploy infrastructure ONCE (total of all clusters)
+./scripts/deploy-infrastructure.sh dk1d --prepare-iso
+
+# Apply each cluster
+./scripts/apply-cluster.sh clusters/omni/dk1d/baseline.yaml
+./scripts/apply-cluster.sh clusters/omni/dk1d/web.yaml
+./scripts/apply-cluster.sh clusters/omni/dk1d/data.yaml
+```
+
+Terraform automatically calculates total requirements:
+- `node_count` = sum of all cluster nodes
+- `node_cpu/memory/disk` = max across all clusters
+
+## Advanced Configuration
+
+### Multiple Talos Versions
+
+```bash
+# Generate different version
+./scripts/prepare-omni-iso.sh dk1d --talos-version 1.10.0
+
+# Use specific ISO
+terraform apply \
+  -var-file=terraform.tfvars.dk1d \
+  -var="omni_iso_name=talos-omni-dk1d-v1.10.0.iso"
+```
+
+### Custom VM IDs
+
+```hcl
+vm_id_start = 8000  # VMs: 8000, 8001, 8002...
+```
+
+### Different Node Sizes
+
+```hcl
+node_cpu       = 4
+node_memory    = 16384  # 16GB
+node_disk_size = 200
+```
+
+### SSH Access to Proxmox
+
+Required for ISO upload. Configure in tfvars:
+
+```hcl
+proxmox_ssh_username = "root"
+# Use key-based auth (recommended)
+proxmox_ssh_private_key_file = "~/.ssh/id_rsa"
+```
+
+## Cleanup
+
+```bash
+terraform destroy -var-file=terraform.tfvars.dk1d
+```
+
+⚠️ **Warning**: Permanently deletes all VMs and data!
+
+## References
+
+- [Proxmox Provider Docs](https://registry.terraform.io/providers/bpg/proxmox/latest/docs)
+- [Talos Documentation](https://www.talos.dev/)
+- [Omni Documentation](https://omni.siderolabs.com/docs)
 
 ## Creating a Proxmox API Token
 
