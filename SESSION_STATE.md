@@ -1,10 +1,126 @@
-# Session State - 2025-12-20
+# Session State - 2025-12-22
 
 ## What Was Accomplished
 
-Created a complete **Multi-Site Hybrid GitOps Platform** for Talos Kubernetes cluster management with comprehensive automation, site metadata tracking, and full support for both vSphere and Proxmox hypervisors.
+Created a complete **Multi-Site Hybrid GitOps Platform** for Talos Kubernetes cluster management with comprehensive automation, omnictl ISO integration, and streamlined workflows for both vSphere and Proxmox hypervisors.
 
-### Latest Session (2025-12-20)
+### Latest Session (2025-12-22)
+
+**Major Simplification: Omnictl ISO-Only Workflow**
+
+Simplified the entire deployment workflow to use only omnictl-generated ISOs with automatic site labeling and guest agent integration.
+
+#### Key Changes:
+
+**1. Omnictl ISO Integration:**
+- Created `prepare-omni-iso.sh` - Downloads ISOs using `omnictl download iso`
+- ISOs include pre-baked Omni credentials and site labels
+- Automatic platform-specific guest agents (qemu-guest-agent for Proxmox, vmware-guest-agent for vSphere)
+- Automatic upload to Proxmox storage via SCP
+- Support for custom extensions, SecureBoot, and version selection
+
+**2. Terraform Simplification (BREAKING CHANGE):**
+- Removed factory image support (talos_image_url, talos_factory_id)
+- Removed GitHub release ISO download
+- Omni ISO is now REQUIRED for all deployments
+- Single, consistent deployment path
+- Cleaner terraform with no conditional logic
+
+**3. Interactive Cluster Creation:**
+- Added `-i` flag to `new-cluster.sh` for interactive mode
+- Prompts for size class, topology, resources, and versions
+- Detects existing configs and offers to reuse values
+- Automatic backup of existing configurations
+
+**4. Size Class System:**
+- Created `clusters/size_classes.csv` with predefined node sizes
+- Six classes: tiny, small, medium, large, xlarge, huge
+- Used in both interactive and CLI modes
+- Simplifies resource selection
+
+**5. Complete Documentation Overhaul:**
+- Rewrote main README.md with clear quick start
+- Simplified docs/QUICKSTART.md to 10-minute guide
+- Created comprehensive docs/DEPLOYMENT-WORKFLOW.md
+- Rewrote terraform/proxmox/README.md for omnictl workflow
+- Removed redundant WORKFLOW.md (outdated)
+- All docs now match current codebase
+
+**6. Automatic tfvars Updates:**
+- Scripts now automatically update terraform.tfvars with node requirements
+- Calculates totals across all clusters: sum of nodes, max CPU/memory/disk
+- Eliminates manual terraform configuration
+
+#### Files Created/Modified:
+
+**New Files:**
+- `scripts/prepare-omni-iso.sh` - Omni ISO generation and upload
+- `clusters/size_classes.csv` - Node size class definitions
+- `docs/DEPLOYMENT-WORKFLOW.md` - Complete deployment workflow guide
+
+**Major Rewrites:**
+- `README.md` - Complete rewrite with current workflow
+- `docs/QUICKSTART.md` - Streamlined to 10 minutes
+- `terraform/proxmox/README.md` - Omni ISO workflow
+- `terraform/proxmox/main.tf` - Simplified to ISO-only
+- `terraform/proxmox/variables.tf` - Removed factory vars
+- `scripts/deploy-infrastructure.sh` - ISO requirement enforcement
+- `scripts/new-cluster.sh` - Interactive mode + size classes
+
+**Removed:**
+- `WORKFLOW.md` - Replaced with docs/DEPLOYMENT-WORKFLOW.md
+- Factory image support throughout codebase
+- Conditional download logic in Terraform
+
+#### Technical Details:
+
+**Omni ISO Benefits:**
+- Machines auto-register with Omni on first boot
+- Pre-labeled with site and platform
+- No manual configuration needed
+- Consistent across all deployments
+- Supports all Talos versions
+
+**Size Classes:**
+```csv
+name,max_cpu,max_memory_mb,description
+tiny,1,4096,Minimal nodes for testing or edge deployments
+small,2,8192,Light workload nodes
+medium,4,16384,Standard workload nodes
+large,8,32768,Moderate workload nodes
+xlarge,16,65536,Heavy workload nodes
+huge,999,999999,Maximum capacity nodes (no upper limit)
+```
+
+**Workflow:**
+```bash
+# 1. Create site
+./scripts/new-site.sh dk1d proxmox --location "Denmark Zone 1 Dev"
+
+# 2. Configure terraform
+vim terraform/proxmox/terraform.tfvars.dk1d
+
+# 3. Create cluster (interactive)
+./scripts/new-cluster.sh dk1d baseline -i
+
+# 4. Deploy (prepares ISO and deploys VMs)
+./scripts/deploy-infrastructure.sh dk1d --prepare-iso
+
+# 5. Apply cluster config
+./scripts/apply-cluster.sh clusters/omni/dk1d/baseline.yaml
+
+# 6. Access cluster
+omnictl kubeconfig dk1d-baseline > kubeconfig
+```
+
+#### Testing Results:
+- ✅ ISO generation with automatic guest agents
+- ✅ Interactive cluster creation with size classes
+- ✅ Automatic tfvars updates
+- ✅ Simplified terraform deployment
+- ✅ All documentation current and accurate
+
+### Previous Session (2025-12-20)
 
 **Fixed Omni Cluster YAML Format and Apply Issues:**
 - Fixed critical YAML format issues preventing cluster deployment
@@ -61,16 +177,50 @@ Created a complete **Multi-Site Hybrid GitOps Platform** for Talos Kubernetes cl
 - **Location**: `~/talos-hybrid-gitops`
 - **GitHub**: https://github.com/mkronvold/talos-hybrid-gitops
 - **Branch**: main
-- **Total Commits**: 22 commits pushed successfully
-- **Last Session**: 2025-12-20T00:11:00Z
+- **Last Updated**: 2025-12-22T04:00:00Z
+
+## Key Features
+
+1. **Omnictl ISO Integration**
+   - Automated ISO generation with `prepare-omni-iso.sh`
+   - Pre-baked Omni credentials and site labels
+   - Automatic platform-specific guest agents
+   - Support for custom extensions and SecureBoot
+
+2. **Interactive Cluster Creation**
+   - `-i` flag for interactive prompts
+   - Size class selection (tiny → huge)
+   - Automatic backup of existing configs
+   - Detects and reuses previous values
+
+3. **Size Class System**
+   - Six predefined classes in CSV
+   - Simplifies resource selection
+   - Used across all scripts
+
+4. **Automatic tfvars Updates**
+   - Scripts calculate node totals automatically
+   - Sum of all cluster nodes
+   - Max CPU/memory/disk across clusters
+
+5. **Multi-Site Architecture**
+   - Site code format: `<location><zone><environment>`
+   - Per-site directories with metadata
+   - Platform-specific configurations
+   - Multiple clusters per site
+
+6. **Complete Documentation**
+   - Main README with quick start
+   - 10-minute QUICKSTART guide
+   - Comprehensive DEPLOYMENT-WORKFLOW
+   - Platform-specific guides
 
 ## Architecture Overview
 
-The hybrid approach uses three distinct layers:
+The simplified approach uses two layers:
 
-1. **Terraform** - Provisions VMs on vSphere/Proxmox
-2. **Omni CLI** - Configures Talos clusters from available machines
-3. **Flux CD** - Deploys Kubernetes applications
+1. **Terraform** - Provisions VMs with Omni ISOs
+2. **Omni** - Configures Talos clusters from registered machines
 
 ## Repository Structure
 
@@ -113,12 +263,25 @@ The hybrid approach uses three distinct layers:
 │   ├── install-node-copilot.sh      # Install NVM, Node.js, Copilot CLI
 │   ├── new-site.sh                  # Create new site with metadata
 │   ├── modify-site.sh               # Safely modify site metadata
-│   ├── new-cluster.sh               # Create Omni cluster config (COSI format)
-│   ├── apply-cluster.sh             # Apply multi-document YAML (NEW)
+│   ├── new-cluster.sh               # Create Omni cluster config (interactive + CLI)
+│   ├── prepare-omni-iso.sh          # Generate Omni ISO with site labels (NEW)
+│   ├── apply-cluster.sh             # Apply multi-document YAML
 │   ├── deploy-jumphost.sh           # Deploy jumphost (platform auto-detected)
-│   └── deploy-infrastructure.sh     # Deploy infrastructure (uses apply-cluster.sh)
+│   └── deploy-infrastructure.sh     # Deploy infrastructure (omnictl ISO workflow)
+├── clusters/
+│   ├── size_classes.csv             # Node size class definitions (NEW)
+│   └── omni/
+│       ├── dk1d/                    # Denmark Zone 1 Dev (Proxmox)
+│       │   ├── .site-metadata       # Platform: proxmox
+│       │   ├── README.md            # Site documentation
+│       │   └── baseline.yaml        # 1 CP + 3 worker cluster
+│       └── <site-code>/             # Per-site directory structure
+│           ├── .site-metadata       # Platform tracking (committed)
+│           ├── README.md            # Site documentation
+│           └── <cluster-name>.yaml  # Omni cluster configs
 ├── docs/
-│   ├── QUICKSTART.md                # Quick start guide
+│   ├── DEPLOYMENT-WORKFLOW.md       # Complete deployment workflow (NEW)
+│   ├── QUICKSTART.md                # 10-minute quick start guide
 │   └── SITE-METADATA.md             # Site metadata system docs
 ├── kubernetes/
 │   └── infrastructure/
@@ -127,8 +290,7 @@ The hybrid approach uses three distinct layers:
 ├── .github/workflows/
 │   ├── terraform-apply.yaml         # CI/CD for Terraform
 │   └── omni-apply.yaml              # CI/CD for Omni configs
-├── README.md                        # Main documentation
-├── WORKFLOW.md                      # Complete workflow examples
+├── README.md                        # Main documentation (completely rewritten)
 └── SESSION_STATE.md                 # This file
 ```
 
@@ -142,7 +304,7 @@ All changes committed and pushed
 
 ## Complete Workflow Example
 
-### Option A: Using Automated Scripts (Recommended)
+### Using Automated Scripts (Current Workflow)
 
 ```bash
 # 1. Clone repository
@@ -151,25 +313,38 @@ cd talos-hybrid-gitops
 
 # 2. Install tools (Homebrew recommended)
 brew install siderolabs/tap/sidero-tools  # omnictl, talosctl, kubectl
-brew install terraform fluxcd/tap/flux
+brew install terraform
 # OR: ./scripts/install-dependencies.sh
-./scripts/install-node-copilot.sh  # Optional: Node.js + Copilot CLI
 
-# 3. Create a new site (vSphere)
-./scripts/new-site.sh ny1d vsphere --location "New York Zone 1"
+# 3. Set Omni credentials
+source ~/omni.sh  # or add to ~/.bashrc
 
-# 4. Edit site configuration
-vim terraform/vsphere/terraform.tfvars.ny1d
-vim terraform/jumphost-vsphere/terraform.tfvars.ny1d
+# 4. Create a new site (Proxmox example)
+./scripts/new-site.sh dk1d proxmox --location "Denmark Zone 1 Dev"
 
-# 5. Create cluster configuration
-./scripts/new-cluster.sh ny1d web --control-planes 3 --workers 5
+# 5. Configure infrastructure
+vim terraform/proxmox/terraform.tfvars.dk1d
+# Set: proxmox_endpoint, api_token, node, datastore, bridge
 
-# 6. Update Terraform with cluster node count
-vim terraform/vsphere/terraform.tfvars.ny1d
-# Set: node_count = 8  (3 CP + 5 workers)
+# 6. Create cluster configuration (interactive)
+./scripts/new-cluster.sh dk1d baseline -i
+# Prompts for: size class, topology, resources, versions
 
-# 7. Set Omni credentials
+# 7. Deploy infrastructure (prepares ISO + deploys VMs)
+./scripts/deploy-infrastructure.sh dk1d --prepare-iso
+# - Generates Omni ISO with site labels
+# - Uploads to Proxmox
+# - Creates VMs with Terraform
+# - VMs auto-register with Omni
+
+# 8. Apply cluster configuration
+./scripts/apply-cluster.sh clusters/omni/dk1d/baseline.yaml
+
+# 9. Access cluster
+omnictl kubeconfig dk1d-baseline > kubeconfig
+export KUBECONFIG=$PWD/kubeconfig
+kubectl get nodes
+```
 source ~/omni.sh
 # Or add to ~/.bashrc for automatic loading
 
