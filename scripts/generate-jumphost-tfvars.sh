@@ -64,7 +64,7 @@ done
 
 # Detect platform from site metadata if not provided
 if [ -z "$PLATFORM" ]; then
-    SITE_METADATA_FILE="$REPO_ROOT/clusters/omni/$SITE_CODE/.site-metadata"
+    SITE_METADATA_FILE="$REPO_ROOT/clusters/omni/$SITE_CODE/site-${site_code}.yaml"
     if [ -f "$SITE_METADATA_FILE" ]; then
         PLATFORM=$(grep "^PLATFORM=" "$SITE_METADATA_FILE" | cut -d= -f2 | tr -d '"')
         echo "Detected platform: $PLATFORM"

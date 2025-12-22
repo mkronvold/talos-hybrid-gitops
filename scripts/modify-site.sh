@@ -86,7 +86,7 @@ validate_site_code() {
 # Load site metadata
 load_site_metadata() {
     local site_code=$1
-    local metadata_file="${PROJECT_ROOT}/clusters/omni/${site_code}/.site-metadata"
+    local metadata_file="${PROJECT_ROOT}/clusters/omni/${site_code}/site-${site_code}.yaml"
     
     if [[ ! -f "$metadata_file" ]]; then
         error "Site metadata not found: $metadata_file"
@@ -152,7 +152,7 @@ show_site_metadata() {
 update_location() {
     local site_code=$1
     local new_location=$2
-    local metadata_file="${PROJECT_ROOT}/clusters/omni/${site_code}/.site-metadata"
+    local metadata_file="${PROJECT_ROOT}/clusters/omni/${site_code}/site-${site_code}.yaml"
     
     load_site_metadata "$site_code" || exit 1
     
@@ -183,7 +183,7 @@ EOF
 change_platform() {
     local site_code=$1
     local new_platform=$2
-    local metadata_file="${PROJECT_ROOT}/clusters/omni/${site_code}/.site-metadata"
+    local metadata_file="${PROJECT_ROOT}/clusters/omni/${site_code}/site-${site_code}.yaml"
     
     if [[ "$new_platform" != "vsphere" && "$new_platform" != "proxmox" ]]; then
         error "Invalid platform: $new_platform"

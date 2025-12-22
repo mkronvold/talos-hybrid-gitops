@@ -30,7 +30,7 @@ info() {
 
 load_site_metadata() {
     local site_code=$1
-    local metadata_file="${PROJECT_ROOT}/clusters/omni/${site_code}/.site-metadata"
+    local metadata_file="${PROJECT_ROOT}/clusters/omni/${site_code}/site-${site_code}.yaml"
     
     if [[ ! -f "$metadata_file" ]]; then
         error "Site metadata not found: $metadata_file"

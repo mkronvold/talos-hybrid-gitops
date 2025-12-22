@@ -71,7 +71,7 @@ ${GREEN}Examples:${NC}
     --vcenter "vcenter-sf.example.com"
 
 ${GREEN}What gets created:${NC}
-  • clusters/omni/<site-code>/.site-metadata (platform tracking)
+  • clusters/omni/<site-code>/site-${site_code}.yaml (platform tracking)
   • terraform/<platform>/terraform.tfvars.<site-code>
   • terraform/jumphost-vsphere/terraform.tfvars.<site-code> (vSphere)
   • terraform/jumphost-proxmox/terraform.tfvars.<site-code> (Proxmox)
@@ -332,7 +332,7 @@ create_site_metadata() {
     local platform=$3
     local environment=$(get_environment "$site_code")
     
-    local metadata_file="${PROJECT_ROOT}/clusters/omni/${site_code}/.site-metadata"
+    local metadata_file="${PROJECT_ROOT}/clusters/omni/${site_code}/site-${site_code}.yaml"
     
     log "Creating site metadata..."
     

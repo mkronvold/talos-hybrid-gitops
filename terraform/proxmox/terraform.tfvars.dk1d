@@ -32,6 +32,6 @@ talos_image_url = "https://factory.talos.dev/image/{factory_id}/v{version}/noclo
 # VM configuration
 vm_id_start    = 8000
 node_count     = 8
-node_cpu       = 4
-node_memory    = 8192
-node_disk_size = 50
+node_cpu       =  baseline
+node_memory    = 
+node_disk_size = 
