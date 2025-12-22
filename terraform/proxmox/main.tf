@@ -12,6 +12,27 @@ terraform {
 locals {
   # Workaround for Terraform v1.6.0 bug with sensitive values in conditionals
   ssh_private_key = var.proxmox_ssh_private_key_file != "" ? file(var.proxmox_ssh_private_key_file) : nonsensitive(var.proxmox_ssh_private_key)
+  
+  # Flatten vm_configs into individual VM specifications
+  # Each VM gets: unique name, vm_id, cpu, memory, disk, role
+  vms = flatten([
+    for config_idx, config in var.vm_configs : [
+      for vm_idx in range(config.count) : {
+        # Calculate cumulative VM index across all configs
+        global_idx = sum([for i in range(config_idx) : var.vm_configs[i].count]) + vm_idx
+        # VM naming: cluster-role-number (e.g., dk1d-controlplane-1, dk1d-worker-1)
+        name       = "${var.cluster_name}-${config.role}-${vm_idx + 1}"
+        vm_id      = var.vm_id_start + sum([for i in range(config_idx) : var.vm_configs[i].count]) + vm_idx
+        cpu        = config.cpu
+        memory     = config.memory
+        disk       = config.disk
+        role       = config.role
+      }
+    ]
+  ])
+  
+  # Create a map for easier lookup
+  vms_map = { for vm in local.vms : vm.global_idx => vm }
 }
 
 provider "proxmox" {
@@ -28,15 +49,15 @@ provider "proxmox" {
   }
 }
 
-# Create Talos VMs using Omni ISO
+# Create Talos VMs using Omni ISO with multi-size configuration support
 # ISO must be prepared first using: ./scripts/prepare-omni-iso.sh <site-code>
 resource "proxmox_virtual_environment_vm" "talos_node" {
-  count = var.node_count
+  for_each = local.vms_map
 
-  name        = "${var.cluster_name}-node-${count.index + 1}"
-  description = "Talos node for ${var.cluster_name} (Omni-managed)"
+  name        = each.value.name
+  description = "Talos ${each.value.role} node for ${var.cluster_name} (Omni-managed)"
   node_name   = var.proxmox_node
-  vm_id       = var.vm_id_start + count.index
+  vm_id       = each.value.vm_id
 
   # Boot from Omni ISO
   cdrom {
@@ -44,16 +65,16 @@ resource "proxmox_virtual_environment_vm" "talos_node" {
     interface = "ide0"
   }
 
-  # CPU configuration
+  # CPU configuration (per-VM)
   cpu {
-    cores   = var.node_cpu
+    cores   = each.value.cpu
     sockets = 1
     type    = "host"
   }
 
-  # Memory configuration
+  # Memory configuration (per-VM)
   memory {
-    dedicated = var.node_memory
+    dedicated = each.value.memory
   }
 
   # Network configuration
@@ -62,11 +83,11 @@ resource "proxmox_virtual_environment_vm" "talos_node" {
     model  = "virtio"
   }
 
-  # Disk configuration
+  # Disk configuration (per-VM)
   disk {
     datastore_id = var.proxmox_datastore
     interface    = "scsi0"
-    size         = var.node_disk_size
+    size         = each.value.disk
     file_format  = "raw"
     discard      = "on"
     ssd          = true
@@ -102,26 +123,42 @@ resource "proxmox_virtual_environment_vm" "talos_node" {
 # Output VM information for Omni registration
 output "vm_names" {
   description = "Names of created VMs"
-  value       = proxmox_virtual_environment_vm.talos_node[*].name
+  value       = [for vm in proxmox_virtual_environment_vm.talos_node : vm.name]
 }
 
 output "vm_ids" {
   description = "Proxmox VM IDs"
-  value       = proxmox_virtual_environment_vm.talos_node[*].vm_id
+  value       = [for vm in proxmox_virtual_environment_vm.talos_node : vm.vm_id]
 }
 
 output "vm_ips" {
   description = "IP addresses of VMs (if available via agent)"
-  value       = proxmox_virtual_environment_vm.talos_node[*].ipv4_addresses
+  value       = [for vm in proxmox_virtual_environment_vm.talos_node : vm.ipv4_addresses]
+}
+
+output "vm_configs_summary" {
+  description = "Summary of VM configurations"
+  value = {
+    total_vms = length(local.vms)
+    configs = [
+      for config in var.vm_configs : {
+        role   = config.role
+        count  = config.count
+        cpu    = config.cpu
+        memory = "${config.memory}MB"
+        disk   = "${config.disk}GB"
+      }
+    ]
+  }
 }
 
 output "omni_registration_info" {
   description = "Information needed for Omni machine registration"
   value = {
     cluster_name = var.cluster_name
-    node_count   = var.node_count
-    nodes = [
-      for i, vm in proxmox_virtual_environment_vm.talos_node : {
+    total_vms    = length(local.vms)
+    vms = [
+      for vm in proxmox_virtual_environment_vm.talos_node : {
         name = vm.name
         id   = vm.vm_id
       }

@@ -132,18 +132,18 @@ calculate_vm_configs() {
         [[ -f "$yaml_file" ]] || continue
         
         local cluster_name=$(basename "$yaml_file" .yaml)
-        info "Processing cluster: $cluster_name"
+        info "Processing cluster: $cluster_name" >&2
         
         local config
         config=$(parse_cluster_yaml "$yaml_file") || {
-            warn "Could not parse $yaml_file, skipping"
+            warn "Could not parse $yaml_file, skipping" >&2
             continue
         }
         
         read cp_count worker_count size_class cpu memory disk <<< "$config"
         
         if [[ -z "$size_class" ]] || [[ "$size_class" == "0" ]]; then
-            warn "No size class found in $cluster_name, skipping"
+            warn "No size class found in $cluster_name, skipping" >&2
             continue
         fi
         
@@ -217,104 +217,64 @@ update_tfvars() {
     cp "$tfvars_file" "$backup_file"
     log "✓ Created backup: $backup_file"
     
-    # Extract total nodes and configs
-    local total_nodes=0
-    local config_lines=""
+    # Parse configs and build vm_configs
+    local vm_configs_json="["
+    local first=true
+    local total_vms=0
     
+    info "VM Configurations:"
     while IFS= read -r line; do
         if [[ "$line" == TOTAL:* ]]; then
-            total_nodes=$(echo "$line" | cut -d: -f2)
-        else
-            config_lines+="$line"$'\n'
+            total_vms=$(echo "$line" | cut -d: -f2)
+            continue
         fi
+        
+        [[ -z "$line" ]] && continue
+        
+        IFS=: read count cpu memory disk role <<< "$line"
+        [[ -z "$count" ]] && continue
+        
+        local mem_gb=$((memory / 1024))
+        info "  - ${count}x ${role}: ${cpu} CPU, ${mem_gb}GB RAM, ${disk}GB disk"
+        
+        # Build JSON object for this config
+        if [[ "$first" != true ]]; then
+            vm_configs_json+=","
+        fi
+        first=false
+        
+        vm_configs_json+="
+  {
+    count  = ${count}
+    cpu    = ${cpu}
+    memory = ${memory}
+    disk   = ${disk}
+    role   = \"${role}\"
+  }"
     done <<< "$configs"
     
-    # Update node_count
-    if grep -q "^node_count" "$tfvars_file"; then
-        sed -i "s/^node_count[[:space:]]*=.*/node_count     = ${total_nodes}/" "$tfvars_file"
-    else
-        echo "node_count     = ${total_nodes}" >> "$tfvars_file"
-    fi
+    vm_configs_json+="
+]"
     
-    log "✓ Updated node_count = $total_nodes"
+    echo ""
     
-    # Add comment about VM configurations if multiple size classes exist
-    local num_configs=$(echo "$config_lines" | grep -c ":" || echo "0")
+    # Remove old single-config variables if they exist
+    sed -i '/^node_count[[:space:]]*=/d' "$tfvars_file"
+    sed -i '/^node_cpu[[:space:]]*=/d' "$tfvars_file"
+    sed -i '/^node_memory[[:space:]]*=/d' "$tfvars_file"
+    sed -i '/^node_disk_size[[:space:]]*=/d' "$tfvars_file"
     
-    if [[ $num_configs -gt 1 ]]; then
-        info "Multiple VM configurations detected:"
-        echo "$config_lines" | while IFS=: read count cpu memory disk role; do
-            [[ -z "$count" ]] && continue
-            local mem_gb=$((memory / 1024))
-            info "  - ${count}x ${role}: ${cpu} CPU, ${mem_gb}GB RAM, ${disk}GB disk"
-        done
-        echo ""
-        warn "Note: Current Terraform configuration supports single VM size only"
-        warn "To use multiple sizes, you'll need to:"
-        warn "  1. Create separate VM resources in Terraform for each size class"
-        warn "  2. Or manually provision VMs with different sizes"
-        warn "  3. All nodes will use the first configuration for now"
-        echo ""
-        
-        # Use first config for backward compatibility
-        local first_config=$(echo "$config_lines" | head -1)
-        IFS=: read count cpu memory disk role <<< "$first_config"
-        
-        # Update node_cpu
-        if grep -q "^node_cpu" "$tfvars_file"; then
-            sed -i "s/^node_cpu[[:space:]]*=.*/node_cpu       = ${cpu}/" "$tfvars_file"
-        else
-            echo "node_cpu       = ${cpu}" >> "$tfvars_file"
-        fi
-        
-        # Update node_memory
-        if grep -q "^node_memory" "$tfvars_file"; then
-            sed -i "s/^node_memory[[:space:]]*=.*/node_memory    = ${memory}/" "$tfvars_file"
-        else
-            echo "node_memory    = ${memory}" >> "$tfvars_file"
-        fi
-        
-        # Update node_disk_size
-        if grep -q "^node_disk_size" "$tfvars_file"; then
-            sed -i "s/^node_disk_size[[:space:]]*=.*/node_disk_size = ${disk}/" "$tfvars_file"
-        else
-            echo "node_disk_size = ${disk}" >> "$tfvars_file"
-        fi
-        
-        log "✓ Updated VM resources (using first configuration):"
-        log "    node_cpu       = ${cpu}"
-        log "    node_memory    = ${memory}"
-        log "    node_disk_size = ${disk}"
-    else
-        # Single configuration - standard update
-        IFS=: read count cpu memory disk role <<< "$config_lines"
-        
-        # Update node_cpu
-        if grep -q "^node_cpu" "$tfvars_file"; then
-            sed -i "s/^node_cpu[[:space:]]*=.*/node_cpu       = ${cpu}/" "$tfvars_file"
-        else
-            echo "node_cpu       = ${cpu}" >> "$tfvars_file"
-        fi
-        
-        # Update node_memory
-        if grep -q "^node_memory" "$tfvars_file"; then
-            sed -i "s/^node_memory[[:space:]]*=.*/node_memory    = ${memory}/" "$tfvars_file"
-        else
-            echo "node_memory    = ${memory}" >> "$tfvars_file"
-        fi
-        
-        # Update node_disk_size
-        if grep -q "^node_disk_size" "$tfvars_file"; then
-            sed -i "s/^node_disk_size[[:space:]]*=.*/node_disk_size = ${disk}/" "$tfvars_file"
-        else
-            echo "node_disk_size = ${disk}" >> "$tfvars_file"
-        fi
-        
-        log "✓ Updated VM resources:"
-        log "    node_cpu       = ${cpu}"
-        log "    node_memory    = ${memory}"
-        log "    node_disk_size = ${disk}"
-    fi
+    # Remove existing vm_configs if present
+    # This is tricky - need to handle multi-line removal
+    sed -i '/^vm_configs[[:space:]]*=/,/^\]/d' "$tfvars_file"
+    
+    # Append new vm_configs
+    echo "" >> "$tfvars_file"
+    echo "# VM Configurations - Multi-size support" >> "$tfvars_file"
+    echo "# Generated by update-tfvars.sh on $(date)" >> "$tfvars_file"
+    echo "vm_configs = ${vm_configs_json}" >> "$tfvars_file"
+    
+    log "✓ Updated vm_configs with ${total_vms} total VMs"
     
     return 0
 }

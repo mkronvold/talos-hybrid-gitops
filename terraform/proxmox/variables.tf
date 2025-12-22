@@ -75,7 +75,7 @@ variable "proxmox_ssh_private_key" {
 variable "talos_version" {
   description = "Talos version (informational only - actual version determined by Omni ISO)"
   type        = string
-  default     = "1.11.5"
+  default     = "1.9.0"
 }
 
 variable "omni_iso_name" {
@@ -84,7 +84,7 @@ variable "omni_iso_name" {
 }
 
 variable "cluster_name" {
-  description = "Name of the Talos cluster"
+  description = "Name of the Talos cluster (used for VM naming prefix)"
   type        = string
 }
 
@@ -94,26 +94,24 @@ variable "vm_id_start" {
   default     = 8000
 }
 
-variable "node_count" {
-  description = "Number of nodes to create"
-  type        = number
-  default     = 3
-}
-
-variable "node_cpu" {
-  description = "Number of CPU cores per node"
-  type        = number
-  default     = 4
-}
-
-variable "node_memory" {
-  description = "Memory per node in MB"
-  type        = number
-  default     = 8192
-}
-
-variable "node_disk_size" {
-  description = "Disk size per node in GB"
-  type        = number
-  default     = 100
+# Multi-VM configuration (required)
+variable "vm_configs" {
+  description = "List of VM configurations. Each config specifies count, cpu, memory, disk, and role."
+  type = list(object({
+    count  = number
+    cpu    = number
+    memory = number
+    disk   = number
+    role   = string # "controlplane" or "worker" or any descriptive name
+  }))
+  
+  validation {
+    condition     = length(var.vm_configs) > 0
+    error_message = "At least one VM configuration is required."
+  }
+  
+  validation {
+    condition     = alltrue([for config in var.vm_configs : config.count > 0])
+    error_message = "All VM configurations must have count > 0."
+  }
 }
