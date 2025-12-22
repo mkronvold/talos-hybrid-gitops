@@ -58,11 +58,25 @@ cluster_name = "dk1d"
 omni_iso_name = "talos-omni-dk1d-v1.11.5.iso"
 
 # VM configuration
-vm_id_start    = 8000
-node_count     = 4
-node_cpu       = 2
-node_memory    = 4096
-node_disk_size = 50
+vm_id_start = 8000
+
+# VM Configurations - Multi-size support
+vm_configs = [
+  {
+    count  = 1
+    cpu    = 2
+    memory = 4096
+    disk   = 50
+    role   = "controlplane"
+  },
+  {
+    count  = 3
+    cpu    = 2
+    memory = 4096
+    disk   = 50
+    role   = "worker"
+  }
+]
 ```
 
 ## Omni ISO Workflow
@@ -250,9 +264,10 @@ Terraform manages infrastructure for the **entire site**, not individual cluster
 ./scripts/apply-cluster.sh clusters/omni/dk1d/data.yaml
 ```
 
-Terraform automatically calculates total requirements:
-- `node_count` = sum of all cluster nodes
-- `node_cpu/memory/disk` = max across all clusters
+The `update-tfvars.sh` script automatically generates `vm_configs` from all cluster YAMLs:
+- Groups by role and resource requirements
+- Supports multiple size classes per site
+- Control planes and workers can have different resources
 
 ## Advanced Configuration
 
@@ -368,21 +383,33 @@ proxmox_bridge    = "vmbr0"         # Network bridge
 talos_version = "1.11.5"
 cluster_name  = "my-cluster"
 
-# Talos image configuration
-# Option 1: Use official Talos ISO (default - leave empty or commented out)
-# talos_image_url = ""
+# Talos version (informational - actual version from Omni ISO)
+talos_version = "1.9.0"
 
-# Option 2: Use Omni Factory image (recommended for Omni-managed clusters)
-# Use {factory_id} placeholder to use the talos_factory_id
-# Use {version} placeholder to automatically use the talos_version variable
-# talos_factory_id = "NO DEFAULT"
-# talos_image_url = "https://factory.talos.dev/image/{factory_id}/v{version}/nocloud-amd64.raw.gz"
+# Omni ISO (REQUIRED)
+# Generate ISO first using: ./scripts/prepare-omni-iso.sh <site-code>
+omni_iso_name = "omni-dk1d-amd64.iso"
 
 # VM configuration
-node_count    = 3
-node_cpu      = 4
-node_memory   = 8192  # MB
-node_disk_size = 100  # GB
+vm_id_start = 8000
+
+# VM Configurations - Multi-size support
+vm_configs = [
+  {
+    count  = 3
+    cpu    = 4
+    memory = 8192
+    disk   = 50
+    role   = "controlplane"
+  },
+  {
+    count  = 5
+    cpu    = 4
+    memory = 8192
+    disk   = 50
+    role   = "worker"
+  }
+]
 ```
 
 ## Deployment
@@ -419,11 +446,11 @@ terraform output
 
 ## What Gets Created
 
-- **VMs**: Number specified in `node_count`
-- **Talos Image**: Downloaded to Proxmox automatically (ISO or disk image)
+- **VMs**: Total count from all configs in `vm_configs`
+- **Omni ISO**: Used for booting all VMs
 - **Network**: VMs connected to specified bridge
-- **Storage**: Disks created on specified datastore
-- **Boot**: VMs configured to boot from Talos image
+- **Storage**: Disks created on specified datastore per VM config
+- **Boot**: VMs configured to boot from Omni ISO
 
 ## VM Details
 
@@ -592,38 +619,13 @@ Omni Factory images are custom Talos images built with Omni registration credent
    https://factory.talos.dev/image/073e2259a32ece62abb86b02e24925e3d280da6300e9353c412a27be33658d38/v1.11.5/nocloud-amd64.raw.gz
    ```
 
-#### Configure Terraform to Use Omni Image
+#### Behavior
 
-Add the `talos_image_url` to your `terraform.tfvars`:
-
-```hcl
-# Use Omni Factory image for automatic registration
-# Use {version} placeholder to automatically substitute talos_version
-talos_image_url = "https://factory.talos.dev/image/YOUR-SCHEMATIC-ID/v{version}/nocloud-amd64.raw.gz"
-```
-
-**Notes**:
-- The image URL is unique to your Omni account and contains embedded credentials
-- Use `{version}` placeholder which will be replaced with the `talos_version` variable value
-- The `.gz` format is supported (automatically decompressed by Proxmox)
-- VMs will use this image as their boot disk instead of an ISO
-- Machines will appear in Omni within 2-5 minutes of boot
-- The schematic ID in the URL is specific to your Omni configuration
-
-#### Behavior Differences
-
-**With Standard ISO** (`talos_image_url = ""`):
-1. VM boots from Talos ISO in CD-ROM drive
-2. Talos runs in maintenance mode
-3. Requires manual `talosctl` configuration or Omni manual registration
-4. Boot order: scsi0 (empty disk), then ide0 (ISO)
-
-**With Omni Factory Image** (`talos_image_url` set):
-1. VM boots directly from pre-installed disk image
-2. Talos auto-connects to Omni endpoint
-3. Machine appears in Omni automatically
-4. Ready for cluster assignment
-5. Boot order: scsi0 (Omni image disk)
+1. VM boots from Omni ISO in CD-ROM drive
+2. Talos connects to Omni endpoint automatically
+3. Machine appears in Omni within 2-5 minutes
+4. Machine has site labels pre-configured
+5. Ready for cluster assignment via MachineClass matching
 
 ## References
 
