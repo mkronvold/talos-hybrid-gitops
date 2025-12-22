@@ -41,3 +41,4 @@ Thumbs.db
 *~
 jumphost-*.txt
 kubeconfig-*
+kubeconfigs/

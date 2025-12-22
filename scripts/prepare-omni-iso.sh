@@ -271,7 +271,16 @@ main() {
         if scp "$iso_path" "${proxmox_ssh_user}@${proxmox_host}:${proxmox_iso_path}"; then
             log "✓ ISO uploaded successfully to Proxmox"
             
-            # Store ISO name for terraform reference
+            # Update omni_iso_name in tfvars
+            if grep -q "^omni_iso_name" "$tfvars_file"; then
+                sed -i "s|^omni_iso_name.*|omni_iso_name = \"${iso_name}\"|" "$tfvars_file"
+                log "✓ Updated omni_iso_name in tfvars"
+            else
+                echo "omni_iso_name = \"${iso_name}\"" >> "$tfvars_file"
+                log "✓ Added omni_iso_name to tfvars"
+            fi
+            
+            # Store ISO name for reference
             local iso_ref_file="${PROJECT_ROOT}/terraform/proxmox/.omni-iso-${site_code}"
             echo "$iso_name" > "$iso_ref_file"
             log "✓ Saved ISO reference: $iso_ref_file"
@@ -296,8 +305,9 @@ main() {
         log "ISO Name: $iso_name"
         echo ""
         log "Next steps:"
-        log "  1. Update terraform to use this ISO"
-        log "  2. Run: ./scripts/deploy-infrastructure.sh $site_code --use-omni-iso"
+        log "  1. ISO name automatically updated in tfvars"
+        log "  2. Run: ./scripts/update-tfvars.sh ${site_code}"
+        log "  3. Run: ./scripts/provision-nodes.sh ${site_code}"
     else
         log "Upload skipped. To upload manually:"
         log "  scp $iso_path root@<proxmox-host>:/var/lib/vz/template/iso/"
