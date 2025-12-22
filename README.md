@@ -299,10 +299,10 @@ cat terraform/proxmox/.omni-iso-<site-code>
 
 ## Documentation
 
-- [WORKFLOW.md](WORKFLOW.md) - Detailed workflow examples
-- [scripts/README.md](scripts/README.md) - Script documentation
+- [docs/DEPLOYMENT-WORKFLOW.md](docs/DEPLOYMENT-WORKFLOW.md) - Complete deployment workflow
 - [docs/QUICKSTART.md](docs/QUICKSTART.md) - Quick start guide
 - [docs/SITE-METADATA.md](docs/SITE-METADATA.md) - Site metadata details
+- [scripts/README.md](scripts/README.md) - Script documentation
 
 ## Requirements
 

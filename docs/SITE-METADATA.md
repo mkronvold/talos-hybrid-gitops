@@ -456,7 +456,7 @@ This safely updates the `LOCATION` field and adds a `MODIFIED` timestamp.
 - [modify-site.sh documentation](../scripts/README.md#modify-sitesh)
 - [new-site.sh documentation](../scripts/README.md#new-sitesh)
 - [Site and cluster management](../scripts/README.md#site-and-cluster-management-scripts)
-- [Complete workflow examples](../WORKFLOW.md)
+- [Complete deployment workflow](DEPLOYMENT-WORKFLOW.md)
 - [Quick start guide](QUICKSTART.md)
 
 ---

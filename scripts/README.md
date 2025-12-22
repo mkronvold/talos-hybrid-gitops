@@ -618,7 +618,7 @@ source ~/.bashrc  # or source ~/.zshrc
 ## Additional Resources
 
 - [Main README](../README.md) - Project overview and architecture
-- [WORKFLOW.md](../WORKFLOW.md) - Complete workflow examples and day-2 operations
+- [DEPLOYMENT-WORKFLOW.md](../docs/DEPLOYMENT-WORKFLOW.md) - Complete deployment workflow
 - [QUICKSTART.md](../docs/QUICKSTART.md) - Quick start guide
 - [Terraform Examples](../terraform/) - Infrastructure as Code examples
 - [Omni Cluster Configs](../clusters/omni/) - Cluster configuration examples
