@@ -4,7 +4,47 @@
 
 Created a complete **Multi-Site Hybrid GitOps Platform** for Talos Kubernetes cluster management with comprehensive automation, multi-VM size support, per-site Terraform variable management, and streamlined workflows for both vSphere and Proxmox hypervisors.
 
-### Latest Session (2025-12-22 - Final Update 07:32 UTC)
+### Latest Session (2025-12-22 - Final Update 07:36 UTC)
+
+**Documentation Consolidation: Streamlined Workflow Guide**
+
+Consolidated and simplified workflow documentation for better user experience.
+
+#### Changes Made:
+
+**1. Renamed Documentation:**
+- `docs/COMPLETE-WORKFLOW.md` → `docs/WORKFLOW.md`
+- More concise filename, easier to reference
+
+**2. Streamlined WORKFLOW.md Structure:**
+- Reduced from 580 lines to ~200 lines
+- Removed redundant explanations and examples
+- Focused on essential workflow steps
+- Kept only critical troubleshooting items
+- Consolidated Day 2 operations into brief sections
+
+**3. New Structure:**
+- Quick workflow step list with essential commands
+- Prerequisites (tools, credentials, platform)
+- Quick example (complete workflow in one code block)
+- Key concepts (per-site strategy, size classes, machine matching)
+- Day 2 operations (brief examples)
+- Troubleshooting (essential items only)
+- Related documentation links
+
+**4. Updated References:**
+- All documentation now references `WORKFLOW.md` instead of `COMPLETE-WORKFLOW.md`
+- README.md links updated
+- Consistent documentation structure across project
+
+#### Benefits:
+1. ✅ Easier to scan and understand workflow
+2. ✅ Reduced cognitive load for new users
+3. ✅ Essential information front and center
+4. ✅ Quick reference guide format
+5. ✅ Detailed explanations still available in other docs
+
+### Previous Session (2025-12-22 - Update 07:32 UTC)
 
 **Documentation Update: Per-Site Terraform Variables Strategy**
 

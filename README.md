@@ -393,7 +393,7 @@ grep omni_iso terraform/<platform>/terraform.tfvars.<site-code>
 
 ## Documentation
 
-- [docs/COMPLETE-WORKFLOW.md](docs/COMPLETE-WORKFLOW.md) - Complete end-to-end deployment workflow
+- [docs/WORKFLOW.md](docs/WORKFLOW.md) - Complete end-to-end deployment workflow
 - [docs/SCALING-CLUSTERS.md](docs/SCALING-CLUSTERS.md) - Scaling operations and best practices
 - [docs/MACHINE-LABELING.md](docs/MACHINE-LABELING.md) - Machine labeling system details
 - [docs/QUICKSTART.md](docs/QUICKSTART.md) - Quick start guide
