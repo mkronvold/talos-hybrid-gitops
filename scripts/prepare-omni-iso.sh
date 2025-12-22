@@ -66,15 +66,23 @@ ${GREEN}Options:${NC}
   --no-upload              Download only, don't upload to Proxmox
   --help                   Show this help message
 
+${GREEN}Platform-Specific Extensions:${NC}
+  Proxmox:  qemu-guest-agent (automatically added)
+  vSphere:  vmware-guest-agent (automatically added)
+  
+  Additional extensions can be specified with --extensions
+
 ${GREEN}Examples:${NC}
   # Download and upload ISO for dk1d site
+  # (qemu-guest-agent automatically added for Proxmox)
   $0 dk1d
   
-  # Download with QEMU guest agent extension
-  $0 dk1d --extensions qemu-guest-agent
+  # Download with additional Intel microcode extension
+  # (qemu-guest-agent still added automatically)
+  $0 dk1d --extensions intel-ucode
   
-  # Download with multiple extensions
-  $0 dk1d --extensions qemu-guest-agent --extensions intel-ucode
+  # Download with multiple additional extensions
+  $0 dk1d --extensions intel-ucode --extensions iscsi-tools
   
   # Just download, don't upload
   $0 dk1d --no-upload
@@ -144,6 +152,22 @@ main() {
     # Load site metadata to get platform
     load_site_metadata "$site_code" || exit 1
     local platform="$PLATFORM"
+    
+    # Add platform-specific extensions automatically
+    case "$platform" in
+        proxmox)
+            if [[ ! " ${extensions[@]} " =~ " qemu-guest-agent " ]]; then
+                extensions+=("qemu-guest-agent")
+                info "Auto-added qemu-guest-agent extension for Proxmox"
+            fi
+            ;;
+        vsphere)
+            if [[ ! " ${extensions[@]} " =~ " vmware-guest-agent " ]]; then
+                extensions+=("vmware-guest-agent")
+                info "Auto-added vmware-guest-agent extension for vSphere"
+            fi
+            ;;
+    esac
     
     echo ""
     echo -e "${GREEN}╔════════════════════════════════════════════════════════════╗${NC}"
