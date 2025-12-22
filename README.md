@@ -38,7 +38,8 @@ brew install siderolabs/tap/sidero-tools terraform
 
 This creates:
 - `clusters/omni/dk1d/` - Cluster configurations
-- `terraform/proxmox/terraform.tfvars.dk1d` - Infrastructure config
+- `clusters/omni/dk1d/site-dk1d.yaml` - Site metadata
+- `terraform/proxmox/terraform.tfvars.dk1d` - Infrastructure config template
 
 ### 4. Configure Terraform
 
@@ -48,7 +49,8 @@ Edit `terraform/proxmox/terraform.tfvars.dk1d` with your Proxmox details:
 proxmox_endpoint = "https://proxmox.example.com:8006"
 proxmox_api_token = "root@pam!terraform=xxx-xxx-xxx"
 proxmox_node = "pve"
-cluster_name = "dk1d"
+proxmox_datastore = "local-lvm"
+proxmox_bridge = "vmbr0"
 ```
 
 ### 5. Create a Cluster
@@ -57,44 +59,67 @@ cluster_name = "dk1d"
 # Interactive mode (recommended)
 ./scripts/new-cluster.sh dk1d baseline -i
 
-# Or specify all options
+# Or specify all options (using size class format CPUxMEMORY)
 ./scripts/new-cluster.sh dk1d baseline \
   --control-planes 1 \
   --workers 3 \
-  --cpu 2 \
-  --memory 4096 \
-  --size-class small
+  --size-class 2x4
 ```
 
-### 6. Deploy
+This creates: `clusters/omni/dk1d/cluster-baseline.yaml`
+
+### 6. Prepare Omni ISOs
 
 ```bash
-# All-in-one: prepare ISO and deploy infrastructure
-./scripts/deploy-infrastructure.sh dk1d --prepare-iso
-
-# Or two-step:
+# Generate ISO for each Talos version needed by your clusters
 ./scripts/prepare-omni-iso.sh dk1d
-./scripts/deploy-infrastructure.sh dk1d
 ```
 
 **What happens:**
-1. ISO is generated with your Omni credentials + site labels
-2. ISO uploaded to Proxmox storage  
-3. VMs created and booted from ISO
-4. Machines auto-register with Omni (labeled: `site=dk1d`, `platform=proxmox`)
-5. Cluster configuration applied via Omni
+- Downloads Omni ISO for each Talos version used by clusters
+- Includes your Omni credentials + site labels
+- Includes platform-specific guest agents (qemu/vmware)
+- Uploads ISO to Proxmox storage
 
-### 7. Apply Cluster Config
+### 7. Update Terraform Variables
 
 ```bash
-./scripts/apply-cluster.sh clusters/omni/dk1d/baseline.yaml
+# Auto-generate vm_configs from all cluster YAMLs
+./scripts/update-tfvars.sh dk1d
 ```
 
-### 8. Access Your Cluster
+This calculates total VMs needed across all clusters and updates terraform.tfvars.dk1d
+
+### 8. Provision Nodes
 
 ```bash
-omnictl kubeconfig dk1d-baseline > kubeconfig
-export KUBECONFIG=./kubeconfig
+# Deploy VMs with Terraform
+./scripts/provision-nodes.sh dk1d
+```
+
+VMs boot from Omni ISO and auto-register with Omni (labeled: `site=dk1d`, `platform=proxmox`, `size_class=2x4`)
+
+### 9. Apply Cluster Configurations
+
+```bash
+# Apply all clusters in the site
+./scripts/apply-clusters.sh dk1d
+
+# Or apply specific cluster
+./scripts/apply-cluster.sh clusters/omni/dk1d/cluster-baseline.yaml
+```
+
+This creates MachineClasses with filters matching your machine labels, then creates the cluster.
+
+### 10. Access Your Cluster
+
+```bash
+# Get kubeconfig for all clusters in site
+./scripts/get-kubeconfigs.sh dk1d
+
+# Or manually for specific cluster
+omnictl kubeconfig dk1d-baseline > kubeconfig-dk1d
+export KUBECONFIG=./kubeconfig-dk1d
 kubectl get nodes
 ```
 
@@ -135,14 +160,14 @@ Examples:
 
 ### 📦 Size Classes
 
-Clusters support predefined size classes for easy node sizing:
+Clusters use `CPUxMEMORY` format for exact resource specification:
 
-- **tiny** - 1 CPU, 4GB - Testing/edge
-- **small** - 2 CPU, 8GB - Light workloads
-- **medium** - 4 CPU, 16GB - Standard workloads
-- **large** - 8 CPU, 32GB - Heavy workloads
-- **xlarge** - 16 CPU, 64GB - Very heavy workloads
-- **huge** - >16 CPU or >64GB - Maximum capacity
+- **2x4** - 2 CPU, 4GB RAM - Light workloads
+- **4x8** - 4 CPU, 8GB RAM - Standard workloads  
+- **8x16** - 8 CPU, 16GB RAM - Heavy workloads
+- **16x32** - 16 CPU, 32GB RAM - Very heavy workloads
+
+Machines are labeled with their exact size class (e.g., `size_class=4x8`) for precise matching.
 
 ### 🤖 Platform-Specific Guest Agents
 
@@ -157,9 +182,9 @@ ISOs automatically include:
 ```
 
 Prompts for:
-- Size class selection (with descriptions)
+- Size class (CPUxMEMORY format like 2x4, 4x8, 8x16)
 - Number of control planes and workers
-- CPU, memory, and disk per node
+- Disk size per node
 - Kubernetes and Talos versions
 
 Detects existing configurations and offers to reuse values.
@@ -169,12 +194,11 @@ Detects existing configurations and offers to reuse values.
 ```
 .
 ├── clusters/
-│   ├── omni/                   # Cluster configurations by site
-│   │   └── dk1d/              # Site: Denmark Zone 1 Dev
-│   │       ├── .site-metadata # Site configuration
-│   │       ├── README.md      # Site documentation
-│   │       └── baseline.yaml  # Cluster definition
-│   └── size_classes.csv       # Node size class definitions
+│   └── omni/                   # Cluster configurations by site
+│       └── dk1d/              # Site: Denmark Zone 1 Dev
+│           ├── site-dk1d.yaml # Site configuration (platform metadata)
+│           ├── README.md      # Site documentation
+│           └── cluster-baseline.yaml  # Cluster definition
 ├── terraform/
 │   ├── proxmox/               # Proxmox VM provisioning
 │   │   ├── main.tf
@@ -185,11 +209,17 @@ Detects existing configurations and offers to reuse values.
 ├── scripts/
 │   ├── new-site.sh            # Create new site
 │   ├── new-cluster.sh         # Create cluster config
-│   ├── prepare-omni-iso.sh    # Generate Omni ISO
-│   ├── deploy-infrastructure.sh # Deploy VMs
-│   └── apply-cluster.sh       # Apply cluster config
+│   ├── prepare-omni-iso.sh    # Generate Omni ISOs (per Talos version)
+│   ├── update-tfvars.sh       # Calculate VM requirements from clusters
+│   ├── provision-nodes.sh     # Deploy VMs with Terraform
+│   ├── apply-cluster.sh       # Apply single cluster config
+│   ├── apply-clusters.sh      # Apply all clusters in a site
+│   ├── get-kubeconfigs.sh     # Download kubeconfigs for site
+│   └── check-machines.sh      # Check machine registration status
 └── docs/
-    └── ...
+    ├── COMPLETE-WORKFLOW.md   # End-to-end workflow guide
+    ├── SCALING-CLUSTERS.md    # Scaling operations guide
+    └── MACHINE-LABELING.md    # Machine labeling system
 ```
 
 ## Scripts Overview
@@ -198,9 +228,13 @@ Detects existing configurations and offers to reuse values.
 |--------|---------|
 | `new-site.sh` | Create site structure and configs |
 | `new-cluster.sh` | Generate cluster YAML (interactive or CLI) |
-| `prepare-omni-iso.sh` | Download Omni ISO with site labels |
-| `deploy-infrastructure.sh` | Deploy VMs with Terraform |
-| `apply-cluster.sh` | Apply cluster config to Omni |
+| `prepare-omni-iso.sh` | Download Omni ISOs for each Talos version |
+| `update-tfvars.sh` | Calculate VM requirements from cluster YAMLs |
+| `provision-nodes.sh` | Deploy VMs with Terraform |
+| `apply-cluster.sh` | Apply single cluster config to Omni |
+| `apply-clusters.sh` | Apply all clusters in a site |
+| `get-kubeconfigs.sh` | Download kubeconfigs for all clusters in site |
+| `check-machines.sh` | Check machine registration and labeling status |
 | `install-dependencies.sh` | Install required tools |
 
 ## Common Workflows
@@ -208,42 +242,60 @@ Detects existing configurations and offers to reuse values.
 ### Create Multiple Clusters in One Site
 
 ```bash
-# Create baseline cluster (small)
-./scripts/new-cluster.sh dk1d baseline -i
+# Create baseline cluster
+./scripts/new-cluster.sh dk1d baseline --size-class 2x4 --control-planes 1 --workers 3
 
-# Create web cluster (medium)
-./scripts/new-cluster.sh dk1d web --size-class medium
+# Create web cluster (larger)
+./scripts/new-cluster.sh dk1d web --size-class 4x8 --control-planes 3 --workers 5
 
-# Create data cluster (large)  
-./scripts/new-cluster.sh dk1d data --size-class large
+# Create data cluster (even larger)  
+./scripts/new-cluster.sh dk1d data --size-class 8x16 --control-planes 3 --workers 10
 
-# Deploy infrastructure (once for all clusters)
-./scripts/deploy-infrastructure.sh dk1d --prepare-iso
+# Prepare ISOs for all Talos versions needed
+./scripts/prepare-omni-iso.sh dk1d
 
-# Apply each cluster
-./scripts/apply-cluster.sh clusters/omni/dk1d/baseline.yaml
-./scripts/apply-cluster.sh clusters/omni/dk1d/web.yaml
-./scripts/apply-cluster.sh clusters/omni/dk1d/data.yaml
+# Update tfvars with total VM requirements
+./scripts/update-tfvars.sh dk1d
+
+# Provision all VMs
+./scripts/provision-nodes.sh dk1d
+
+# Apply all cluster configurations
+./scripts/apply-clusters.sh dk1d
+
+# Get all kubeconfigs
+./scripts/get-kubeconfigs.sh dk1d
 ```
 
-### Update Existing Cluster
+### Update Existing Cluster (Scale Up/Down)
 
 ```bash
-# Edit cluster YAML
-vim clusters/omni/dk1d/baseline.yaml
+# Modify cluster YAML with new node counts
+./scripts/new-cluster.sh dk1d baseline --workers 5 --force
 
-# Apply changes
-./scripts/apply-cluster.sh clusters/omni/dk1d/baseline.yaml
+# Recalculate VM requirements
+./scripts/update-tfvars.sh dk1d
+
+# Apply Terraform changes
+./scripts/provision-nodes.sh dk1d
+
+# Machines automatically register and join
+# No need to reapply cluster config unless changing resources
 ```
 
-### Recreate Cluster with Different Settings
+### Change Cluster Node Resources
 
 ```bash
-# Interactive mode automatically backs up existing config
-./scripts/new-cluster.sh dk1d baseline -i
+# Create new cluster config with different size class
+./scripts/new-cluster.sh dk1d baseline --size-class 8x16 --force
 
-# Redeploy
-./scripts/apply-cluster.sh clusters/omni/dk1d/baseline.yaml
+# This requires recreating VMs:
+./scripts/update-tfvars.sh dk1d
+./scripts/provision-nodes.sh dk1d
+
+# Machines re-register with new labels
+# Apply cluster config to update MachineClass filters
+./scripts/apply-cluster.sh clusters/omni/dk1d/cluster-baseline.yaml
 ```
 
 ## Advanced Configuration
@@ -260,20 +312,32 @@ vim clusters/omni/dk1d/baseline.yaml
   --extensions iscsi-tools
 ```
 
-### Different Talos Versions
+### Different Talos Versions Per Cluster
 
 ```bash
-# Download specific version
-./scripts/prepare-omni-iso.sh dk1d --talos-version 1.10.0
+# Create cluster with specific Talos version
+./scripts/new-cluster.sh dk1d test --talos-version 1.8.3
 
-# Use in cluster
-./scripts/new-cluster.sh dk1d test --talos-version 1.10.0
+# Prepare ISO will automatically download all versions needed
+./scripts/prepare-omni-iso.sh dk1d
+
+# Update tfvars to include all version-specific ISOs
+./scripts/update-tfvars.sh dk1d
 ```
 
 ### SecureBoot Support
 
 ```bash
 ./scripts/prepare-omni-iso.sh dk1d --secureboot
+```
+
+### Check Machine Registration Status
+
+```bash
+# View all machines and their registration status
+./scripts/check-machines.sh dk1d
+
+# Shows: UUID, labels, registration state, cluster assignment
 ```
 
 ## Troubleshooting
@@ -283,23 +347,46 @@ vim clusters/omni/dk1d/baseline.yaml
 - Check VM console for boot errors
 - Verify network connectivity to Omni endpoint
 - Check Omni UI: Unassigned Machines
+- Run `./scripts/check-machines.sh <site-code>` to see registration status
+
+**Machines not joining cluster?**
+- Verify machine labels match MachineClass filters
+- Check labels: `site=<site-code>`, `platform=<platform>`, `size_class=<CPUxMEMORY>`
+- Run `omnictl get machines` to see machine labels
+- Run `omnictl get machineclasses` to see filter requirements
 
 **Terraform errors about missing ISO?**
 ```bash
-# Ensure ISO is prepared first
+# Ensure ISOs are prepared first
 ./scripts/prepare-omni-iso.sh <site-code>
 
-# Verify ISO reference file exists
-cat terraform/proxmox/.omni-iso-<site-code>
+# Verify ISO references in tfvars
+grep omni_iso terraform/<platform>/terraform.tfvars.<site-code>
 ```
 
-**Interactive mode not prompting?**
-- Ensure running in an actual terminal (not piped)
-- Try with explicit bash: `bash scripts/new-cluster.sh dk1d test -i`
+**Need to change node count?**
+```bash
+# Use --force to update existing cluster
+./scripts/new-cluster.sh <site> <cluster> --workers <new-count> --force
+
+# Recalculate VM requirements
+./scripts/update-tfvars.sh <site>
+
+# Apply Terraform changes
+./scripts/provision-nodes.sh <site>
+```
+
+**Talos version mismatch errors?**
+- All nodes in a cluster must use the same Talos version
+- The cluster's Talos version must match the ISO version
+- Regenerate ISOs if Talos version changed: `./scripts/prepare-omni-iso.sh <site>`
+- Update tfvars: `./scripts/update-tfvars.sh <site>`
 
 ## Documentation
 
-- [docs/DEPLOYMENT-WORKFLOW.md](docs/DEPLOYMENT-WORKFLOW.md) - Complete deployment workflow
+- [docs/COMPLETE-WORKFLOW.md](docs/COMPLETE-WORKFLOW.md) - Complete end-to-end deployment workflow
+- [docs/SCALING-CLUSTERS.md](docs/SCALING-CLUSTERS.md) - Scaling operations and best practices
+- [docs/MACHINE-LABELING.md](docs/MACHINE-LABELING.md) - Machine labeling system details
 - [docs/QUICKSTART.md](docs/QUICKSTART.md) - Quick start guide
 - [docs/SITE-METADATA.md](docs/SITE-METADATA.md) - Site metadata details
 - [scripts/README.md](scripts/README.md) - Script documentation

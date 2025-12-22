@@ -4,7 +4,138 @@
 
 Created a complete **Multi-Site Hybrid GitOps Platform** for Talos Kubernetes cluster management with comprehensive automation, multi-VM size support, and streamlined workflows for both vSphere and Proxmox hypervisors.
 
-### Latest Session (2025-12-22 - Final Update 06:51 UTC)
+### Latest Session (2025-12-22 - Final Update 07:26 UTC)
+
+**Major Workflow Refactoring: Separated ISO, Terraform, and Cluster Management**
+
+Completed comprehensive refactoring to separate concerns and create a clean, linear workflow from site creation to cluster deployment.
+
+#### Key Changes:
+
+**1. Workflow Separation (BREAKING CHANGE):**
+- `prepare-omni-iso.sh` - Only creates ISO images (no tfvars modification)
+- `update-tfvars.sh` - Only updates tfvars with vm_configs (reads all cluster YAMLs)
+- `provision-nodes.sh` - Only runs Terraform to create/destroy VMs
+- `apply-cluster.sh` / `apply-clusters.sh` - Only applies Omni cluster configs
+- `get-kubeconfigs.sh` - Downloads kubeconfigs for all clusters in a site
+- `check-machines.sh` - Checks machine registration and labeling status
+
+**2. Complete End-to-End Workflow:**
+```bash
+# 1. Create site
+./scripts/new-site.sh dk1d proxmox --location "Denmark Zone 1 Dev"
+
+# 2. Create cluster(s)
+./scripts/new-cluster.sh dk1d baseline --size-class 2x4 --control-planes 1 --workers 3
+
+# 3. Prepare Omni ISOs (one for each Talos version)
+./scripts/prepare-omni-iso.sh dk1d
+
+# 4. Calculate VM requirements from cluster YAMLs
+./scripts/update-tfvars.sh dk1d
+
+# 5. Provision VMs
+./scripts/provision-nodes.sh dk1d
+
+# 6. Apply cluster configs (creates MachineClasses + Clusters)
+./scripts/apply-clusters.sh dk1d
+
+# 7. Monitor machine registration
+./scripts/check-machines.sh dk1d
+
+# 8. Download kubeconfigs
+./scripts/get-kubeconfigs.sh dk1d
+```
+
+**3. Multi-Version ISO Support:**
+- Each cluster can use a different `talos_version`
+- All nodes in a cluster must use the same `talos_version`
+- `prepare-omni-iso.sh` downloads ISOs for all versions found in cluster YAMLs
+- `update-tfvars.sh` adds version-specific ISO URLs to tfvars
+- Terraform assigns correct ISO to each VM based on cluster's Talos version
+
+**4. Fixed Talos Version Issues:**
+- Removed `talos_version` from new-cluster.sh defaults (was causing mismatches)
+- Version now properly set in cluster YAML spec
+- ISO URLs correctly include version in filename
+- All VMs in a cluster guaranteed to use matching version
+
+**5. Enhanced Scripts:**
+- `apply-clusters.sh` - Applies all clusters in a site sequentially
+- `get-kubeconfigs.sh` - Downloads all kubeconfigs for a site
+- `check-machines.sh` - Shows machine registration status and labels
+- All scripts support proper error handling and validation
+
+**6. Documentation Updates:**
+- Updated README.md with complete workflow
+- Updated size class descriptions (CPUxMEMORY format)
+- Updated troubleshooting section with common issues
+- Added script references for all new utilities
+
+#### Technical Details:
+
+**ISO Generation:**
+- Scans all cluster YAMLs in site to find Talos versions
+- Downloads one ISO per unique version
+- ISOs stored with version in filename: `omni-<site>-<version>.iso`
+- Uploaded to Proxmox with version-specific naming
+
+**Terraform Variables:**
+- `vm_configs` list includes `talos_version` field
+- Each VM config specifies which ISO to use
+- Multiple clusters with different versions supported
+- Example:
+```hcl
+vm_configs = [
+  {
+    cluster_name = "dk1d-baseline"
+    role = "controlplane"
+    count = 1
+    size_class = "2x4"
+    talos_version = "1.8.3"
+  },
+  {
+    cluster_name = "dk1d-web"
+    role = "worker"
+    count = 5
+    size_class = "4x8"
+    talos_version = "1.9.5"
+  }
+]
+```
+
+**Machine Labeling:**
+- Machines auto-labeled on boot: `site`, `platform`, `size_class`
+- MachineClasses filter by exact label match
+- `check-machines.sh` validates labels match cluster requirements
+
+#### Files Modified:
+- `scripts/prepare-omni-iso.sh` - Removed tfvars updates, multi-version support
+- `scripts/update-tfvars.sh` - Reads cluster YAMLs, includes talos_version in vm_configs
+- `scripts/provision-nodes.sh` - New script wrapping Terraform operations
+- `scripts/apply-clusters.sh` - Apply all clusters in a site
+- `scripts/get-kubeconfigs.sh` - Download all kubeconfigs for a site
+- `scripts/check-machines.sh` - Check machine status and labels
+- `README.md` - Complete workflow documentation update
+- `SESSION_STATE.md` - This update
+
+#### Testing Results:
+- ✅ Multi-version ISO generation
+- ✅ Separate workflow steps (ISO → tfvars → provision → apply)
+- ✅ Version-specific ISO assignment per cluster
+- ✅ Machine registration and labeling
+- ✅ Complete end-to-end workflow validated
+
+#### Benefits:
+1. ✅ Clean separation of concerns
+2. ✅ Each script has single responsibility
+3. ✅ Support for multiple Talos versions in one site
+4. ✅ Easy to add/remove clusters without affecting others
+5. ✅ Clear linear workflow from start to finish
+6. ✅ Better error handling and validation
+7. ✅ Utilities for monitoring and troubleshooting
+
+### Previous Session (2025-12-22 - Final Update 06:51 UTC)
 
 **Major Refactoring: Size Classes, Multi-VM Support, and Cluster Scaling**
 
