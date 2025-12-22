@@ -1,131 +1,122 @@
 # Quick Start Guide
 
-Get a Talos Kubernetes cluster running in minutes!
+Deploy a Talos Kubernetes cluster in 10 minutes.
 
 ## Prerequisites
 
-### 1. Install Tools
+### 1. Install Tools (2 minutes)
 
-**With Homebrew (Recommended - macOS/Linux):**
+**macOS/Linux with Homebrew:**
 ```bash
-# Install all Talos/Omni tools with one command
-brew install siderolabs/tap/sidero-tools  # Installs omnictl, talosctl, kubectl
-
-# Additional tools
-brew install terraform fluxcd/tap/flux
+brew install siderolabs/tap/sidero-tools terraform
 ```
 
-**Or use the automated script:**
+**Or automated:**
 ```bash
 git clone https://github.com/mkronvold/talos-hybrid-gitops.git
 cd talos-hybrid-gitops
 ./scripts/install-dependencies.sh
 ```
 
-### 2. Get Omni Service Account
+### 2. Get Omni Credentials (3 minutes)
 
-1. Visit your Omni instance (e.g., https://your-instance.omni.siderolabs.io)
-2. Sign up or log in
-3. Go to Settings → Service Accounts → Create new service account
-4. Download the `omni.sh` script provided
+1. Visit your Omni instance: `https://yourorg.omni.siderolabs.io`
+2. Settings → Service Accounts → Create
+3. Download `omni.sh` 
+4. Add to shell:
+   ```bash
+   echo "source ~/omni.sh" >> ~/.bashrc
+   source ~/.bashrc
+   ```
 
-### 3. Set Credentials
+## Deploy a Cluster (5 minutes)
 
-```bash
-# Source the Omni credentials script
-source ~/omni.sh
-
-# Or add to ~/.bashrc for automatic loading:
-echo "source ~/omni.sh" >> ~/.bashrc
-```
-
-## Quick Deploy
-
-### Option A: Automated Deployment
+### Proxmox Example
 
 ```bash
-# 1. Create a site
-./scripts/new-site.sh ny1d vsphere --location "New York Zone 1 Dev"
+# 1. Create site
+./scripts/new-site.sh dk1d proxmox --location "Denmark Zone 1 Dev"
 
-# 2. Configure Terraform
-vim terraform/vsphere/terraform.tfvars.ny1d
-# Add your vSphere credentials and settings
+# 2. Configure (edit with your Proxmox details)
+vim terraform/proxmox/terraform.tfvars.dk1d
 
-# 3. Deploy everything
-./scripts/deploy-infrastructure.sh ny1d clusters/omni/ny1d/<cluster>.yaml
-```
+# 3. Create cluster (interactive)
+./scripts/new-cluster.sh dk1d baseline -i
 
-### Option B: Manual Deployment
+# 4. Deploy (all-in-one)
+./scripts/deploy-infrastructure.sh dk1d --prepare-iso
 
-```bash
-# 1. Configure site
-cd terraform/vsphere  # or proxmox
-cp terraform.tfvars.example terraform.tfvars.mysite
-# Edit terraform.tfvars.mysite
+# 5. Apply cluster config
+./scripts/apply-cluster.sh clusters/omni/dk1d/baseline.yaml
 
-# 2. Create site metadata
-./scripts/new-site.sh mysite vsphere --location "My Site"
-
-# 3. Deploy infrastructure
-terraform init  # Download providers and create lock file
-terraform workspace select -or-create mysite
-terraform apply -var-file=terraform.tfvars.mysite
-
-# 4. Deploy cluster
-cd ../..
-./scripts/new-cluster.sh mysite web --control-planes 3 --workers 5
-omnictl apply -f clusters/omni/mysite/web.yaml
-
-# 5. Access cluster
-omnictl kubeconfig mysite-web > kubeconfig
+# 6. Access cluster
+omnictl kubeconfig dk1d-baseline > kubeconfig
 export KUBECONFIG=./kubeconfig
 kubectl get nodes
 ```
 
-## Next Steps
+### What Just Happened?
 
-1. **Bootstrap GitOps:**
-   ```bash
-   flux bootstrap github \
-     --owner=<your-github-username> \
-     --repository=talos-hybrid-gitops \
-     --branch=main \
-     --path=kubernetes/clusters/<cluster-name> \
-     --personal
-   ```
+1. **Created site structure** - Folders and configs for `dk1d`
+2. **Generated cluster config** - Interactive prompts for size, topology
+3. **Prepared Omni ISO** - Downloaded ISO with your Omni credentials + site labels
+4. **Deployed VMs** - Terraform created VMs and booted from ISO
+5. **Auto-registered** - VMs connected to Omni automatically
+6. **Applied cluster** - Omni configured Kubernetes cluster
+7. **Ready to use** - Cluster is running
 
-2. **Deploy Applications:**
-   ```bash
-   kubectl apply -f kubernetes/apps/
-   ```
+## vSphere Example
 
-3. **Explore More:**
-   - See [WORKFLOW.md](../WORKFLOW.md) for complete examples
-   - See [scripts/README.md](../scripts/README.md) for all automation scripts
-   - See [SITE-METADATA.md](SITE-METADATA.md) for multi-site architecture
+```bash
+# Same as Proxmox, just change platform:
+./scripts/new-site.sh ny1d vsphere --location "New York Zone 1 Dev"
+vim terraform/vsphere/terraform.tfvars.ny1d
+./scripts/new-cluster.sh ny1d web -i
+./scripts/deploy-infrastructure.sh ny1d --prepare-iso
+./scripts/apply-cluster.sh clusters/omni/ny1d/web.yaml
+```
+
+## Non-Interactive Mode
+
+```bash
+# Specify all options on command line
+./scripts/new-cluster.sh dk1d baseline \
+  --control-planes 1 \
+  --workers 3 \
+  --size-class small \
+  --cpu 2 \
+  --memory 4096 \
+  --disk 50
+
+# Two-step deploy (prepare ISO separately)
+./scripts/prepare-omni-iso.sh dk1d
+./scripts/deploy-infrastructure.sh dk1d
+```
 
 ## Troubleshooting
 
-**Tools not found after installation?**
-```bash
-# Ensure Homebrew is in your PATH
-echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zprofile
-source ~/.zprofile
+**VMs not showing in Omni?**
+- Wait 2-5 minutes after boot
+- Check VM console for errors
+- Verify network to Omni endpoint
+- Check: Omni UI → Unassigned Machines
 
-# Verify installations
-omnictl version
-talosctl version --client
-kubectl version --client
+**"ISO reference file not found"?**
+```bash
+./scripts/prepare-omni-iso.sh dk1d
 ```
 
-**Machines not registering with Omni?**
-- Wait 2-5 minutes for VMs to boot
-- Check Omni UI for machine visibility
-- Verify network connectivity from VMs to Omni
+**Terraform provider errors?**
+```bash
+cd terraform/proxmox  # or vsphere
+terraform init -upgrade
+```
 
-**Terraform errors?**
-- Run `terraform init` first to download providers and create lock file
-- If you see "Inconsistent dependency lock file" errors, run `terraform init` again
-- Verify credentials in terraform.tfvars
-- Ensure vSphere template or Proxmox ISO is available
-- Check resource limits (CPU, memory, storage)
+## Next Steps
+
+- **Add more clusters**: `./scripts/new-cluster.sh dk1d web -i`
+- **Different size**: Use size classes: tiny, small, medium, large, xlarge, huge
+- **Multiple sites**: Repeat for different locations/environments
+- **Custom extensions**: `./scripts/prepare-omni-iso.sh dk1d --extensions intel-ucode`
+
+See [../README.md](../README.md) for complete documentation.
