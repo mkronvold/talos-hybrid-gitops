@@ -1,4 +1,4 @@
-# Copy this file to terraform.tfvars and fill in your values
+# Copy this file to terraform.tfvars.<site-code> and fill in your values
 
 # Proxmox endpoint
 proxmox_endpoint = "https://proxmox.example.com:8006"
@@ -18,25 +18,17 @@ proxmox_datastore = "local-lvm"
 proxmox_bridge    = "vmbr0"
 proxmox_ssh_username = "root"  # SSH user for Proxmox host
 
-# Talos configuration
-talos_version = "1.11.5"
+# Cluster configuration
 cluster_name  = "dev-proxmox"
 
-# Talos image configuration
-# Option 1: Use official Talos ISO (default - leave talos_image_url empty or commented out)
-# talos_image_url = ""
-
-# Option 2: Use Omni Factory image (recommended for Omni-managed clusters)
-# Download your factory image from: https://factory.talos.dev/
-# Use {version} placeholder to automatically use the talos_version variable
-# Use {factory_id} placeholder to use the talos_factory_id variable
-talos_factory_id = "723ca318564987bcb1c018e441dfd0750c6162db0dee340d9761053f376c2c3c"
-talos_image_url = "https://factory.talos.dev/image/{factory_id}/v{version}/nocloud-amd64.raw.gz"
-
+# Omni ISO (REQUIRED)
+# Generate ISO first using: ./scripts/prepare-omni-iso.sh <site-code>
+# The script will automatically set this value, or specify manually:
+omni_iso_name = "talos-omni-dk1d-v1.11.5.iso"
 
 # VM configuration
 vm_id_start    = 8000
-node_count     = 3  # For dev cluster
+node_count     = 3
 node_cpu       = 2
 node_memory    = 4096
 node_disk_size = 50

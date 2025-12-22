@@ -28,39 +28,20 @@ provider "proxmox" {
   }
 }
 
-# Download Talos/Omni image to Proxmox (skip if using pre-downloaded Omni ISO)
-resource "proxmox_virtual_environment_download_file" "talos_image" {
-  count = var.use_omni_iso ? 0 : 1
-
-  content_type            = "iso"
-  datastore_id            = var.proxmox_iso_storage
-  node_name               = var.proxmox_node
-  url                     = var.talos_image_url != "" ? replace(replace(var.talos_image_url, "{version}", var.talos_version), "{factory_id}", var.talos_factory_id) : "https://github.com/siderolabs/talos/releases/download/v${var.talos_version}/metal-amd64.iso"
-  file_name               = var.talos_image_url != "" ? "talos-omni-${var.cluster_name}.img" : null
-  decompression_algorithm = var.talos_image_url != "" ? "gz" : null
-
-  # Only download if not already present
-  lifecycle {
-    ignore_changes = [url]
-  }
-}
-
-# Create Talos VMs
+# Create Talos VMs using Omni ISO
+# ISO must be prepared first using: ./scripts/prepare-omni-iso.sh <site-code>
 resource "proxmox_virtual_environment_vm" "talos_node" {
   count = var.node_count
 
   name        = "${var.cluster_name}-node-${count.index + 1}"
-  description = "Talos node for ${var.cluster_name}"
+  description = "Talos node for ${var.cluster_name} (Omni-managed)"
   node_name   = var.proxmox_node
   vm_id       = var.vm_id_start + count.index
 
-  # Boot from Talos image (ISO or disk image)
-  dynamic "cdrom" {
-    for_each = var.talos_image_url == "" ? [1] : []
-    content {
-      file_id   = var.use_omni_iso ? "${var.proxmox_iso_storage}:iso/${var.omni_iso_name}" : proxmox_virtual_environment_download_file.talos_image[0].id
-      interface = "ide0"
-    }
+  # Boot from Omni ISO
+  cdrom {
+    file_id   = "${var.proxmox_iso_storage}:iso/${var.omni_iso_name}"
+    interface = "ide0"
   }
 
   # CPU configuration
@@ -87,7 +68,6 @@ resource "proxmox_virtual_environment_vm" "talos_node" {
     interface    = "scsi0"
     size         = var.node_disk_size
     file_format  = "raw"
-    file_id      = var.talos_image_url != "" && !var.use_omni_iso ? proxmox_virtual_environment_download_file.talos_image[0].id : null
     discard      = "on"
     ssd          = true
   }
