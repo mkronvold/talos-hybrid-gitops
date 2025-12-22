@@ -40,7 +40,7 @@ Shows:
 - Labeling instructions
 
 ${GREEN}Example:${NC}
-  $0 clusters/omni/dk1d/baseline.yaml
+  $0 clusters/omni/dk1d/cluster-baseline.yaml
 
 ${GREEN}Size Class Format:${NC}
   CPUxMEMORY where MEMORY is in GB

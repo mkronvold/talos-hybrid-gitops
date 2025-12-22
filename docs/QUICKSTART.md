@@ -47,7 +47,7 @@ vim terraform/proxmox/terraform.tfvars.dk1d
 ./scripts/deploy-infrastructure.sh dk1d --prepare-iso
 
 # 5. Apply cluster config
-./scripts/apply-cluster.sh clusters/omni/dk1d/baseline.yaml
+./scripts/apply-cluster.sh clusters/omni/dk1d/cluster-baseline.yaml
 
 # 6. Access cluster
 omnictl kubeconfig dk1d-baseline > kubeconfig
@@ -73,7 +73,7 @@ kubectl get nodes
 vim terraform/vsphere/terraform.tfvars.ny1d
 ./scripts/new-cluster.sh ny1d web -i
 ./scripts/deploy-infrastructure.sh ny1d --prepare-iso
-./scripts/apply-cluster.sh clusters/omni/ny1d/web.yaml
+./scripts/apply-cluster.sh clusters/omni/ny1d/cluster-web.yaml
 ```
 
 ## Non-Interactive Mode

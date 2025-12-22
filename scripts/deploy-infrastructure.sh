@@ -112,10 +112,10 @@ ${GREEN}Site Code Format:${NC}
 
 ${GREEN}Examples:${NC}
   # Deploy NY Zone 1 Dev cluster (platform auto-detected)
-  $0 ny1d clusters/omni/ny1d/web.yaml
+  $0 ny1d clusters/omni/ny1d/cluster-web.yaml
   
   # Deploy SF Zone 2 Prod cluster (platform auto-detected)
-  $0 sf2p clusters/omni/sf2p/data.yaml
+  $0 sf2p clusters/omni/sf2p/cluster-data.yaml
   
   # Deploy infrastructure only (manual cluster config later)
   $0 la1s
@@ -126,7 +126,7 @@ ${GREEN}Required Environment Variables:${NC}
 
 ${GREEN}Configuration Files:${NC}
   Terraform: terraform/<platform>/terraform.tfvars.<site-code>
-  Cluster:   clusters/omni/<site-code>-cluster.yaml
+  Cluster:   clusters/omni/cluster-<name>.yaml
 
 ${GREEN}Workflow:${NC}
   1. Validates site code and prerequisites

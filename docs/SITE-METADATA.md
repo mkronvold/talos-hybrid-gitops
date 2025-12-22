@@ -112,7 +112,7 @@ All deployment scripts automatically load and use site metadata:
 
 ```bash
 # Loads platform from metadata
-./scripts/deploy-infrastructure.sh ny1d clusters/omni/ny1d/web.yaml
+./scripts/deploy-infrastructure.sh ny1d clusters/omni/ny1d/cluster-web.yaml
 
 # Internally:
 # - Reads clusters/omni/ny1d/.site-metadata
@@ -189,7 +189,7 @@ Platform is defined once and used everywhere:
 # All commands auto-detect vSphere:
 ./scripts/new-cluster.sh ny1d web
 ./scripts/deploy-jumphost.sh ny1d
-./scripts/deploy-infrastructure.sh ny1d clusters/omni/ny1d/web.yaml
+./scripts/deploy-infrastructure.sh ny1d clusters/omni/ny1d/cluster-web.yaml
 ```
 
 ### 2. Prevents Platform Mismatch
@@ -218,13 +218,13 @@ After metadata:
 
 Before:
 ```bash
-./scripts/deploy-infrastructure.sh ny1d vsphere clusters/omni/ny1d/web.yaml
+./scripts/deploy-infrastructure.sh ny1d vsphere clusters/omni/ny1d/cluster-web.yaml
 ./scripts/deploy-jumphost.sh ny1d vsphere
 ```
 
 After:
 ```bash
-./scripts/deploy-infrastructure.sh ny1d clusters/omni/ny1d/web.yaml
+./scripts/deploy-infrastructure.sh ny1d clusters/omni/ny1d/cluster-web.yaml
 ./scripts/deploy-jumphost.sh ny1d
 ```
 
@@ -236,8 +236,8 @@ When a site is created, the following structure is generated:
 clusters/omni/ny1d/
 ├── .site-metadata          # Platform and site info (committed)
 ├── README.md              # Site documentation
-├── web.yaml              # Cluster configurations
-└── data.yaml             # (created by new-cluster.sh)
+├── cluster-web.yaml              # Cluster configurations
+└── cluster-data.yaml             # (created by new-cluster.sh)
 ```
 
 ## Validation

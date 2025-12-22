@@ -110,8 +110,6 @@ ${GREEN}Size Class Format:${NC}
   
   Custom sizes allowed: 4x16, 8x32, 12x24, etc.
 
-EOF
-
 ${GREEN}Note:${NC}
   Platform is automatically detected from site configuration.
   Size class defines both CPU and memory using CPUxMEMORY format (e.g., 2x4 = 2 CPU, 4GB RAM).
@@ -273,7 +271,7 @@ prompt_with_default() {
 interactive_mode() {
     local site_code=$1
     local cluster_name=$2
-    local yaml_file="${PROJECT_ROOT}/clusters/omni/${site_code}/${cluster_name}.yaml"
+    local yaml_file="${PROJECT_ROOT}/clusters/omni/${site_code}/cluster-${cluster_name}.yaml"
     
     # Initialize existing variables to empty
     EXISTING_CP=""
@@ -415,7 +413,7 @@ create_cluster_yaml() {
     
     local full_cluster_name="${site_code}-${cluster_name}"
     local site_dir="${PROJECT_ROOT}/clusters/omni/${site_code}"
-    local yaml_file="${site_dir}/${cluster_name}.yaml"
+    local yaml_file="${site_dir}/cluster-${cluster_name}.yaml"
     local environment=$(get_environment "$site_code")
     
     # Ensure site directory exists
@@ -440,10 +438,10 @@ create_cluster_yaml() {
 # Created: $(date)
 #
 # Apply with omnictl cluster template:
-#   omnictl cluster template sync -f ${cluster_name}.yaml
+#   omnictl cluster template sync -f cluster-${cluster_name}.yaml
 #
 # Or use the helper script:
-#   ./scripts/apply-cluster.sh ${cluster_name}.yaml
+#   ./scripts/apply-cluster.sh cluster-${cluster_name}.yaml
 
 kind: Cluster
 name: ${full_cluster_name}
@@ -810,7 +808,7 @@ main() {
     validate_cluster_name "$cluster_name"
     
     # Check if cluster already exists (skip if interactive or force mode)
-    local yaml_file="${PROJECT_ROOT}/clusters/omni/${site_code}/${cluster_name}.yaml"
+    local yaml_file="${PROJECT_ROOT}/clusters/omni/${site_code}/cluster-${cluster_name}.yaml"
     if [[ -f "$yaml_file" && "$interactive" != true && "$force_overwrite" != true ]]; then
         error "Cluster configuration already exists: $yaml_file"
         error "Use --force/-f to overwrite, or --interactive/-i to update"

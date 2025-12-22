@@ -132,7 +132,7 @@ Talos version [v1.11.5]: v1.11.5
 ```
 
 **Result:**
-- Creates: `clusters/omni/dk1d/baseline.yaml`
+- Creates: `clusters/omni/dk1d/cluster-baseline.yaml`
 - Updates: `terraform/proxmox/terraform.tfvars.dk1d` with node requirements
 
 #### Create Multiple Clusters
@@ -292,13 +292,13 @@ Apply each cluster configuration to Omni.
 
 ```bash
 # Apply baseline cluster
-./scripts/apply-cluster.sh clusters/omni/dk1d/baseline.yaml
+./scripts/apply-cluster.sh clusters/omni/dk1d/cluster-baseline.yaml
 
 # Apply web cluster
-./scripts/apply-cluster.sh clusters/omni/dk1d/web.yaml
+./scripts/apply-cluster.sh clusters/omni/dk1d/cluster-web.yaml
 
 # Apply data cluster
-./scripts/apply-cluster.sh clusters/omni/dk1d/data.yaml
+./scripts/apply-cluster.sh clusters/omni/dk1d/cluster-data.yaml
 ```
 
 **What happens:**
@@ -409,7 +409,7 @@ terraform apply \
 vim terraform/proxmox/terraform.tfvars.dk1d
 ./scripts/new-cluster.sh dk1d baseline -i
 ./scripts/deploy-infrastructure.sh dk1d --prepare-iso
-./scripts/apply-cluster.sh clusters/omni/dk1d/baseline.yaml
+./scripts/apply-cluster.sh clusters/omni/dk1d/cluster-baseline.yaml
 ```
 
 ### Workflow 2: Multiple Clusters, Different Sizes
@@ -429,7 +429,7 @@ vim terraform/proxmox/terraform.tfvars.ny1p
 
 # Apply each cluster
 ./scripts/apply-cluster.sh clusters/omni/ny1p/infra.yaml
-./scripts/apply-cluster.sh clusters/omni/ny1p/web.yaml
+./scripts/apply-cluster.sh clusters/omni/ny1p/cluster-web.yaml
 ./scripts/apply-cluster.sh clusters/omni/ny1p/db.yaml
 ```
 
@@ -454,8 +454,8 @@ vim terraform/proxmox/terraform.tfvars.ny1p
 # Test...
 
 # If good, update other clusters
-vim clusters/omni/dk1d/baseline.yaml  # Update versions
-./scripts/apply-cluster.sh clusters/omni/dk1d/baseline.yaml
+vim clusters/omni/dk1d/cluster-baseline.yaml  # Update versions
+./scripts/apply-cluster.sh clusters/omni/dk1d/cluster-baseline.yaml
 ```
 
 ### Workflow 4: Add Capacity to Existing Site
@@ -555,7 +555,7 @@ Cluster config specifies v1.11.5 but ISO is v1.10.0.
 ./scripts/prepare-omni-iso.sh dk1d --talos-version 1.11.5
 
 # Or update cluster config
-vim clusters/omni/dk1d/baseline.yaml
+vim clusters/omni/dk1d/cluster-baseline.yaml
 # Change talosversion: 1.10.5
 ```
 

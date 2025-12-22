@@ -97,7 +97,7 @@ This matches machines with ALL three labels.
 Use the helper script:
 
 ```bash
-./scripts/check-machines.sh clusters/omni/dk1d/baseline.yaml
+./scripts/check-machines.sh clusters/omni/dk1d/cluster-baseline.yaml
 ```
 
 Output shows:
@@ -115,13 +115,13 @@ Output shows:
 ./scripts/new-cluster.sh dk1d baseline --control-planes 1 --workers 3
 
 # 2. Deploy infrastructure
-./scripts/deploy-infrastructure.sh dk1d clusters/omni/dk1d/baseline.yaml
+./scripts/deploy-infrastructure.sh dk1d clusters/omni/dk1d/cluster-baseline.yaml
 
 # 3. Wait for machines to register (2-5 minutes)
 watch omnictl get machines
 
 # 4. Check labeling status
-./scripts/check-machines.sh clusters/omni/dk1d/baseline.yaml
+./scripts/check-machines.sh clusters/omni/dk1d/cluster-baseline.yaml
 
 # 5. Label machines in Omni UI with: dk1d, proxmox, small
 
@@ -173,7 +173,7 @@ matchlabels:
 **Check:**
 ```bash
 # 1. Verify machines have labels
-./scripts/check-machines.sh clusters/omni/dk1d/baseline.yaml
+./scripts/check-machines.sh clusters/omni/dk1d/cluster-baseline.yaml
 
 # 2. Check MachineClass requirements
 omnictl get machineclasses -o yaml | grep -A 2 matchlabels
@@ -267,7 +267,7 @@ Check machine registration and label status:
 ./scripts/check-machines.sh
 
 # Check for specific cluster
-./scripts/check-machines.sh clusters/omni/dk1d/baseline.yaml
+./scripts/check-machines.sh clusters/omni/dk1d/cluster-baseline.yaml
 ```
 
 ### new-cluster.sh

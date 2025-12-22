@@ -38,7 +38,7 @@ This script uses 'omnictl cluster template sync' to apply cluster configurations
 
 ${GREEN}Arguments:${NC}
   cluster-template-file   Path to cluster template YAML file
-                         (e.g., clusters/omni/dk1d/baseline.yaml)
+                         (e.g., clusters/omni/dk1d/cluster-baseline.yaml)
 
 ${GREEN}Options:${NC}
   --dry-run              Show what would be applied without making changes
@@ -47,13 +47,13 @@ ${GREEN}Options:${NC}
 
 ${GREEN}Example:${NC}
   # Apply cluster template
-  $0 clusters/omni/dk1d/baseline.yaml
+  $0 clusters/omni/dk1d/cluster-baseline.yaml
   
   # Dry run to see changes
-  $0 clusters/omni/dk1d/baseline.yaml --dry-run
+  $0 clusters/omni/dk1d/cluster-baseline.yaml --dry-run
   
   # Verbose output with diffs
-  $0 clusters/omni/dk1d/baseline.yaml --verbose
+  $0 clusters/omni/dk1d/cluster-baseline.yaml --verbose
 
 ${GREEN}Cluster Template Format:${NC}
   The cluster template should contain:
